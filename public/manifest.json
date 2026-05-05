@@ -1,0 +1,17 @@
+{
+  "name": "SPARK Quest",
+  "short_name": "SPARK Quest",
+  "description": "Complete quests. Earn points. Unlock adventures.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0D0D0D",
+  "theme_color": "#0D0D0D",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ]
+}

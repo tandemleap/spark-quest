@@ -1,0 +1,1 @@
+open /Users/scottgriffiths/spark-quest/.env.local
