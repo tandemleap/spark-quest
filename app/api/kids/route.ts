@@ -13,12 +13,12 @@ export async function POST(request: NextRequest) {
 
   const { data: existing } = await supabase
     .from('kids')
-    .select('id')
+    .select('id, name_handle, avatar_url')
     .eq('name_handle', handle)
     .maybeSingle()
 
   if (existing) {
-    return NextResponse.json({ error: 'Handle already taken' }, { status: 409 })
+    return NextResponse.json(existing, { status: 409 })
   }
 
   const { data, error } = await supabase

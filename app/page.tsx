@@ -6,20 +6,29 @@ import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { FullPageSpinner } from '@/components/ui/LoadingSpinner'
 
-type LoginState = 'checking' | 'returning' | 'new' | 'submitting'
+type LoginState = 'checking' | 'returning' | 'new' | 'submitting' | 'claim'
+
+interface ClaimKid {
+  id: string
+  name_handle: string
+  avatar_url: string | null
+}
 
 export default function LoginPage() {
   const router = useRouter()
   const [state, setState] = useState<LoginState>('checking')
   const [handle, setHandle] = useState('')
   const [storedHandle, setStoredHandle] = useState('')
-  const [error, setError] = useState('')
+  const [storedAvatarUrl, setStoredAvatarUrl] = useState<string | null>(null)
+  const [claimKid, setClaimKid] = useState<ClaimKid | null>(null)
 
   useEffect(() => {
     const kidId = localStorage.getItem('spark_kid_id')
     const kidHandle = localStorage.getItem('spark_kid_handle')
+    const kidAvatar = localStorage.getItem('spark_kid_avatar')
     if (kidId && kidHandle) {
       setStoredHandle(kidHandle)
+      setStoredAvatarUrl(kidAvatar)
       setState('returning')
     } else {
       setState('new')
@@ -31,7 +40,6 @@ export default function LoginPage() {
     const trimmed = handle.trim()
     if (!trimmed) return
     setState('submitting')
-    setError('')
 
     const res = await fetch('/api/kids', {
       method: 'POST',
@@ -40,13 +48,13 @@ export default function LoginPage() {
     })
 
     if (res.status === 409) {
-      setError(`"${trimmed}" is already taken. Try adding your last initial or a number.`)
-      setState('new')
+      const existing = await res.json()
+      setClaimKid(existing)
+      setState('claim')
       return
     }
 
     if (!res.ok) {
-      setError('Something went wrong. Try again.')
       setState('new')
       return
     }
@@ -57,13 +65,22 @@ export default function LoginPage() {
     router.push('/onboarding/avatar')
   }
 
+  function claimAccount() {
+    if (!claimKid) return
+    localStorage.setItem('spark_kid_id', claimKid.id)
+    localStorage.setItem('spark_kid_handle', claimKid.name_handle)
+    if (claimKid.avatar_url) localStorage.setItem('spark_kid_avatar', claimKid.avatar_url)
+    router.push('/home')
+  }
+
   if (state === 'checking') return <FullPageSpinner />
 
+  // Returning user (has localStorage)
   if (state === 'returning') {
     return (
       <main className="app-shell min-h-screen flex flex-col items-center justify-center px-6 gap-8">
         <div className="flex flex-col items-center gap-4 animate-pop-in">
-          <Avatar avatarUrl={null} handle={storedHandle} size="xl" />
+          <Avatar avatarUrl={storedAvatarUrl} handle={storedHandle} size="xl" />
           <div className="text-center">
             <p className="text-[--color-muted] text-sm mb-1">Welcome back</p>
             <h1 className="text-3xl font-bold text-[--color-text]">{storedHandle}</h1>
@@ -81,6 +98,7 @@ export default function LoginPage() {
             onClick={() => {
               localStorage.removeItem('spark_kid_id')
               localStorage.removeItem('spark_kid_handle')
+              localStorage.removeItem('spark_kid_avatar')
               setHandle('')
               setState('new')
             }}
@@ -92,6 +110,40 @@ export default function LoginPage() {
     )
   }
 
+  // Name found in DB — "Is this you?"
+  if (state === 'claim' && claimKid) {
+    return (
+      <main className="app-shell min-h-screen flex flex-col items-center justify-center px-6 gap-8">
+        <div className="flex flex-col items-center gap-4 animate-pop-in">
+          <Avatar avatarUrl={claimKid.avatar_url} handle={claimKid.name_handle} size="xl" />
+          <div className="text-center">
+            <p className="text-[--color-muted] text-sm mb-1">Found this account</p>
+            <h1 className="text-3xl font-bold text-[--color-text]">{claimKid.name_handle}</h1>
+          </div>
+          <p className="text-[--color-muted] text-base">Is this you?</p>
+        </div>
+
+        <div className="flex flex-col gap-3 w-full animate-slide-up" style={{ animationDelay: '0.1s', opacity: 0 }}>
+          <Button size="lg" onClick={claimAccount}>
+            Yep, that&apos;s me →
+          </Button>
+          <Button
+            variant="ghost"
+            size="lg"
+            onClick={() => {
+              setClaimKid(null)
+              setHandle('')
+              setState('new')
+            }}
+          >
+            Not me — use a different name
+          </Button>
+        </div>
+      </main>
+    )
+  }
+
+  // New user registration
   return (
     <main className="app-shell min-h-screen flex flex-col px-6 pt-16 gap-8">
       <div className="animate-slide-down">
@@ -119,10 +171,6 @@ export default function LoginPage() {
           autoCapitalize="words"
           className="w-full bg-[--color-surface] border border-[--color-border] rounded-2xl px-5 py-4 text-lg text-[--color-text] placeholder:text-[--color-muted] focus:outline-none focus:border-[--color-accent] transition-colors"
         />
-
-        {error && (
-          <p className="text-red-400 text-sm px-1">{error}</p>
-        )}
 
         <Button
           type="submit"
