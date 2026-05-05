@@ -8,13 +8,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Name must be at least 2 characters' }, { status: 400 })
   }
 
-  const handle = name_handle.trim()
+  const handle = name_handle.trim().toLowerCase()
   const supabase = getServiceSupabase()
 
   const { data: existing } = await supabase
     .from('kids')
     .select('id, name_handle, avatar_url')
-    .eq('name_handle', handle)
+    .ilike('name_handle', handle)
     .maybeSingle()
 
   if (existing) {
