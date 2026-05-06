@@ -4,26 +4,23 @@ import { getServiceSupabase } from '@/lib/supabase'
 
 export const maxDuration = 60
 
-// fofr/face-to-many — supports explicit style enum that actually changes the output
-const MODEL = 'fofr/face-to-many:a07f252abbbd832009640b27f063ea52d87d7a23a185ca165bec23b5adc8deaf'
-
-const STYLE_MAP: Record<string, string> = {
-  '3d':       '3D',
-  'emoji':    'Emoji',
-  'videogame': 'Video game',
-  'pixels':   'Pixels',
-  'clay':     'Clay',
-  'toy':      'Toy',
-}
+const MODEL = 'fofr/face-to-sticker:764d4827ea159608a07cdde8ddf1c6000019627515eb02b6b449695fd547e5ef'
 
 const GENDER_PROMPTS: Record<string, string> = {
   neutral: 'a person',
-  boy:     'a boy',
-  girl:    'a girl',
+  boy:     'a teenage boy',
+  girl:    'a teenage girl',
+}
+
+const VIBE_PROMPTS: Record<string, string> = {
+  bold:   'bold colors, vibrant, energetic',
+  cool:   'cool, dark tones, edgy',
+  cute:   'cute, soft colors, friendly',
+  fierce: 'fierce, dramatic, intense',
 }
 
 export async function POST(request: NextRequest) {
-  const { kid_id, image, style = '3d', gender = 'neutral', force = false, isRetry = false } = await request.json()
+  const { kid_id, image, gender = 'neutral', vibe = 'bold', force = false, isRetry = false } = await request.json()
 
   if (!kid_id || !image) {
     return NextResponse.json({ error: 'kid_id and image required' }, { status: 400 })
@@ -42,8 +39,9 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const modelStyle = STYLE_MAP[style] ?? '3D'
-  const genderStr = GENDER_PROMPTS[gender] ?? 'a person'
+  const genderStr = GENDER_PROMPTS[gender] ?? GENDER_PROMPTS.neutral
+  const vibeStr = VIBE_PROMPTS[vibe] ?? VIBE_PROMPTS.bold
+  const prompt = `${genderStr}, ${vibeStr}, sticker art style, cartoon character, bold outlines`
 
   try {
     const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN! })
@@ -51,12 +49,14 @@ export async function POST(request: NextRequest) {
     const output = await replicate.run(MODEL, {
       input: {
         image: `data:image/jpeg;base64,${image}`,
-        style: modelStyle,
-        prompt: genderStr,
-        negative_prompt: 'ugly, blurry, text, watermark, extra limbs, deformed',
-        prompt_strength: 4.5,
-        denoising_strength: 0.65,
-        instant_id_strength: 0.8,
+        prompt,
+        negative_prompt: 'ugly, blurry, text, watermark, extra limbs, deformed, realistic photo',
+        prompt_strength: 8,
+        instant_id_strength: 1,
+        ip_adapter_noise: 0.5,
+        ip_adapter_weight: 0.3,
+        steps: 20,
+        upscale: false,
       },
     }) as string[]
 
@@ -66,15 +66,11 @@ export async function POST(request: NextRequest) {
     const imgRes = await fetch(imageUrl)
     const imgBuffer = await imgRes.arrayBuffer()
 
-    // Retries go to a separate file so v1 is preserved for the compare screen
     const filename = isRetry ? `${kid_id}_v2.webp` : `${kid_id}.webp`
 
     const { error: uploadError } = await supabase.storage
       .from('avatars')
-      .upload(filename, imgBuffer, {
-        contentType: 'image/webp',
-        upsert: true,
-      })
+      .upload(filename, imgBuffer, { contentType: 'image/webp', upsert: true })
 
     if (uploadError) throw uploadError
 
@@ -82,12 +78,8 @@ export async function POST(request: NextRequest) {
       .from('avatars')
       .getPublicUrl(filename)
 
-    // Only update the DB for v1 — v2 stays provisional until the user picks it
     if (!isRetry) {
-      await supabase
-        .from('kids')
-        .update({ avatar_url: publicUrl })
-        .eq('id', kid_id)
+      await supabase.from('kids').update({ avatar_url: publicUrl }).eq('id', kid_id)
     }
 
     return NextResponse.json({ avatar_url: publicUrl })

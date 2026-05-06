@@ -8,21 +8,19 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 type AvatarState = 'setup' | 'camera' | 'preview' | 'generating' | 'result' | 'compare' | 'error'
 
 type Gender = 'neutral' | 'boy' | 'girl'
-type Style = '3d' | 'emoji' | 'videogame' | 'pixels' | 'clay' | 'toy'
+type Vibe = 'bold' | 'cool' | 'cute' | 'fierce'
 
-const STYLES: { value: Style; label: string; emoji: string }[] = [
-  { value: '3d',        label: '3D',        emoji: '🎭' },
-  { value: 'emoji',     label: 'Emoji',     emoji: '😎' },
-  { value: 'videogame', label: 'Video Game', emoji: '🎮' },
-  { value: 'pixels',    label: 'Pixel Art', emoji: '👾' },
-  { value: 'clay',      label: 'Clay',      emoji: '🏺' },
-  { value: 'toy',       label: 'Toy',       emoji: '🧸' },
+const GENDERS: { value: Gender; label: string; emoji: string }[] = [
+  { value: 'neutral', label: 'No preference', emoji: '⚡' },
+  { value: 'boy',     label: 'Guy / masc',    emoji: '🤙' },
+  { value: 'girl',    label: 'Girl / fem',    emoji: '✌️' },
 ]
 
-const GENDERS: { value: Gender; label: string }[] = [
-  { value: 'neutral', label: 'No preference' },
-  { value: 'boy',     label: 'Guy / masculine' },
-  { value: 'girl',    label: 'Girl / feminine' },
+const VIBES: { value: Vibe; label: string; emoji: string; desc: string }[] = [
+  { value: 'bold',   label: 'Bold',   emoji: '🔥', desc: 'bright & vibrant' },
+  { value: 'cool',   label: 'Cool',   emoji: '😎', desc: 'dark & edgy' },
+  { value: 'cute',   label: 'Cute',   emoji: '✨', desc: 'soft & friendly' },
+  { value: 'fierce', label: 'Fierce', emoji: '💪', desc: 'intense & dramatic' },
 ]
 
 export default function AvatarOnboardingPage() {
@@ -33,7 +31,7 @@ export default function AvatarOnboardingPage() {
 
   const [state, setState] = useState<AvatarState>('setup')
   const [gender, setGender] = useState<Gender>('neutral')
-  const [style, setStyle] = useState<Style>('3d')
+  const [vibe, setVibe] = useState<Vibe>('bold')
   const [capturedImage, setCapturedImage] = useState<string | null>(null)
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null)
   const [v1Url, setV1Url] = useState<string | null>(null)
@@ -103,7 +101,7 @@ export default function AvatarOnboardingPage() {
       const res = await fetch('/api/avatar/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kid_id: kidId, image: capturedImage.split(',')[1], style, gender, force: forceReplace, isRetry }),
+        body: JSON.stringify({ kid_id: kidId, image: capturedImage.split(',')[1], gender, vibe, force: forceReplace, isRetry }),
       })
       if (!res.ok) throw new Error()
       const { avatar_url } = await res.json()
@@ -174,7 +172,7 @@ export default function AvatarOnboardingPage() {
             </p>
 
             <div>
-              <p className="text-sm font-semibold text-[--color-text] mb-3">I want my avatar to look like a...</p>
+              <p className="text-sm font-semibold text-[--color-text] mb-3">Make it look like a...</p>
               <div className="flex gap-2 flex-wrap">
                 {GENDERS.map(g => (
                   <button
@@ -182,38 +180,38 @@ export default function AvatarOnboardingPage() {
                     type="button"
                     onClick={() => setGender(g.value)}
                     style={{ touchAction: 'manipulation' }}
-                    className={`px-4 py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors ${
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors ${
                       gender === g.value
                         ? 'bg-[--color-accent] text-white border-[--color-accent]'
                         : 'bg-[--color-surface] text-[--color-text] border-[--color-border]'
                     }`}
                   >
-                    {gender === g.value ? '✓ ' : ''}{g.label}
+                    <span>{g.emoji}</span>{g.label}
                   </button>
                 ))}
               </div>
             </div>
 
             <div>
-              <p className="text-sm font-semibold text-[--color-text] mb-3">Pick a style</p>
-              <div className="grid grid-cols-3 gap-2">
-                {STYLES.map(s => (
+              <p className="text-sm font-semibold text-[--color-text] mb-3">Pick a vibe</p>
+              <div className="grid grid-cols-2 gap-2">
+                {VIBES.map(v => (
                   <button
-                    key={s.value}
+                    key={v.value}
                     type="button"
-                    onClick={() => setStyle(s.value)}
+                    onClick={() => setVibe(v.value)}
                     style={{ touchAction: 'manipulation' }}
-                    className={`flex flex-col items-center gap-1.5 py-3 rounded-2xl border-2 text-center transition-colors ${
-                      style === s.value
+                    className={`flex items-center gap-3 px-4 py-3 rounded-2xl border-2 text-left transition-colors ${
+                      vibe === v.value
                         ? 'border-[--color-accent] bg-[--color-surface] text-[--color-text]'
                         : 'border-[--color-border] bg-[--color-surface] text-[--color-muted]'
                     }`}
                   >
-                    <span className="text-2xl">{s.emoji}</span>
-                    <span className="text-xs font-semibold leading-tight">{s.label}</span>
-                    {style === s.value && (
-                      <span className="text-[10px] font-bold text-[--color-accent-light]">✓ selected</span>
-                    )}
+                    <span className="text-2xl">{v.emoji}</span>
+                    <div>
+                      <p className={`text-sm font-bold leading-tight ${vibe === v.value ? 'text-[--color-text]' : 'text-[--color-muted]'}`}>{v.label}</p>
+                      <p className="text-xs leading-tight opacity-70">{v.desc}</p>
+                    </div>
                   </button>
                 ))}
               </div>
@@ -262,7 +260,7 @@ export default function AvatarOnboardingPage() {
         {state === 'preview' && capturedImage && (
           <>
             <p className="text-sm text-[--color-muted]">
-              Happy with the shot? Tap below to generate your <strong className="text-[--color-text]">{STYLES.find(s => s.value === style)?.label}</strong> avatar.
+              Happy with the shot? Tap below to generate your <strong className="text-[--color-text]">{VIBES.find(v => v.value === vibe)?.label}</strong> sticker avatar.
             </p>
             <div className="w-full aspect-square rounded-3xl overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
