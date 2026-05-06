@@ -38,10 +38,11 @@ export default function AvatarOnboardingPage() {
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [hasUsedRetry, setHasUsedRetry] = useState(false)
-  const [isRetrySession, setIsRetrySession] = useState(false)
+  const [forceReplace, setForceReplace] = useState(false)
 
   useEffect(() => {
-    setHasUsedRetry(localStorage.getItem('spark_avatar_retried') === 'true')
+    // If they already have an avatar, always force-replace so we don't return the old one
+    if (localStorage.getItem('spark_kid_avatar')) setForceReplace(true)
   }, [])
 
   async function startCamera() {
@@ -101,7 +102,7 @@ export default function AvatarOnboardingPage() {
       const res = await fetch('/api/avatar/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kid_id: kidId, image: capturedImage.split(',')[1], style, gender, force: isRetrySession }),
+        body: JSON.stringify({ kid_id: kidId, image: capturedImage.split(',')[1], style, gender, force: forceReplace }),
       })
       if (!res.ok) throw new Error()
       const { avatar_url } = await res.json()
@@ -118,9 +119,8 @@ export default function AvatarOnboardingPage() {
   }
 
   function tryAgain() {
-    localStorage.setItem('spark_avatar_retried', 'true')
     setHasUsedRetry(true)
-    setIsRetrySession(true)
+    setForceReplace(true)
     setGeneratedUrl(null)
     setCapturedImage(null)
     setState('camera')
