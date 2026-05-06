@@ -8,15 +8,15 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 type AvatarState = 'setup' | 'camera' | 'preview' | 'generating' | 'result' | 'error'
 
 type Gender = 'neutral' | 'boy' | 'girl'
-type Style = 'cartoon' | 'anime' | 'fortnite' | 'pencil' | 'pixel' | 'watercolor'
+type Style = '3d' | 'emoji' | 'videogame' | 'pixels' | 'clay' | 'toy'
 
 const STYLES: { value: Style; label: string; emoji: string }[] = [
-  { value: 'cartoon',    label: 'Cartoon',    emoji: '🎨' },
-  { value: 'anime',      label: 'Anime',      emoji: '⛩️' },
-  { value: 'fortnite',   label: 'Fortnite',   emoji: '🎮' },
-  { value: 'pencil',     label: 'Pencil Sketch', emoji: '✏️' },
-  { value: 'pixel',      label: 'Pixel Art',  emoji: '👾' },
-  { value: 'watercolor', label: 'Watercolor', emoji: '🖌️' },
+  { value: '3d',        label: '3D',        emoji: '🎭' },
+  { value: 'emoji',     label: 'Emoji',     emoji: '😎' },
+  { value: 'videogame', label: 'Video Game', emoji: '🎮' },
+  { value: 'pixels',    label: 'Pixel Art', emoji: '👾' },
+  { value: 'clay',      label: 'Clay',      emoji: '🏺' },
+  { value: 'toy',       label: 'Toy',       emoji: '🧸' },
 ]
 
 const GENDERS: { value: Gender; label: string }[] = [
@@ -33,7 +33,7 @@ export default function AvatarOnboardingPage() {
 
   const [state, setState] = useState<AvatarState>('setup')
   const [gender, setGender] = useState<Gender>('neutral')
-  const [style, setStyle] = useState<Style>('cartoon')
+  const [style, setStyle] = useState<Style>('3d')
   const [capturedImage, setCapturedImage] = useState<string | null>(null)
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null)
   const [cameraError, setCameraError] = useState<string | null>(null)
