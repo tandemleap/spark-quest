@@ -7,8 +7,8 @@ interface QuestCardProps {
 }
 
 export function QuestCard({ quest, onClick, style }: QuestCardProps) {
-  const bgColor = CATEGORY_COLORS[quest.category]
-  const textColor = CATEGORY_TEXT_COLORS[quest.category]
+  const bgColor = CATEGORY_COLORS[quest.category] || 'var(--color-surface)'
+  const textColor = CATEGORY_TEXT_COLORS[quest.category] || 'var(--color-text)'
 
   return (
     <button

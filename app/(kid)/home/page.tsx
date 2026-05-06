@@ -68,41 +68,15 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Adventure hero card */}
-      {adventure && (
-        <Card
-          className="animate-slide-up"
-          style={{ animationDelay: '0.05s', opacity: 0 }}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-[--color-accent-light]">
-              🗺 Group Adventure
-            </span>
-            {adventure.is_unlocked && (
-              <span className="text-xs font-bold text-green-400">UNLOCKED ✓</span>
-            )}
-          </div>
-          <h2 className="text-xl font-bold text-[--color-text] mb-1">{adventure.title}</h2>
-          <p className="text-[--color-muted] text-sm mb-4">{adventure.description}</p>
-
-          {/* Progress bar */}
-          <div className="mb-2">
-            <div className="flex justify-between text-xs text-[--color-muted] mb-1.5">
-              <span>{adventure.points_contributed ?? 0} pts contributed</span>
-              <span>{adventure.point_cost_per_kid * adventure.kids_threshold} pts needed</span>
-            </div>
-            <div className="w-full bg-white/10 rounded-full h-3">
-              <div
-                className="bg-[--color-accent] h-3 rounded-full transition-all duration-700"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-          </div>
-          <p className="text-xs text-[--color-muted]">
-            {adventure.kids_threshold} kids × {adventure.point_cost_per_kid} pts to unlock
-          </p>
-        </Card>
-      )}
+      {/* Welcome message */}
+      <div className="animate-slide-up" style={{ animationDelay: '0.05s', opacity: 0 }}>
+        <h2 className="text-2xl font-bold text-[--color-text] leading-snug">
+          Welcome to SPARK Quest!
+        </h2>
+        <p className="text-[--color-muted] text-sm mt-1">
+          Complete challenges to earn rewards, trips and more!
+        </p>
+      </div>
 
       {/* Featured quests */}
       <div className="animate-slide-up" style={{ animationDelay: '0.1s', opacity: 0 }}>
@@ -154,6 +128,40 @@ export default function HomePage() {
           ))}
         </div>
       </div>
+
+      {/* Adventure hero card */}
+      {adventure && (
+        <Card
+          className="animate-slide-up"
+          style={{ animationDelay: '0.15s', opacity: 0 }}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-[--color-accent-light]">
+              🗺 Group Adventure
+            </span>
+            {adventure.is_unlocked && (
+              <span className="text-xs font-bold text-green-400">UNLOCKED ✓</span>
+            )}
+          </div>
+          <h2 className="text-xl font-bold text-[--color-text] mb-1">{adventure.title}</h2>
+          <p className="text-[--color-muted] text-sm mb-4">{adventure.description}</p>
+          <div className="mb-2">
+            <div className="flex justify-between text-xs text-[--color-muted] mb-1.5">
+              <span>{adventure.points_contributed ?? 0} pts contributed</span>
+              <span>{adventure.point_cost_per_kid * adventure.kids_threshold} pts needed</span>
+            </div>
+            <div className="w-full bg-white/10 rounded-full h-3">
+              <div
+                className="bg-[--color-accent] h-3 rounded-full transition-all duration-700"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-[--color-muted]">
+            {adventure.kids_threshold} kids × {adventure.point_cost_per_kid} pts to unlock
+          </p>
+        </Card>
+      )}
 
       {/* Quick links */}
       <div className="grid grid-cols-2 gap-3 animate-slide-up" style={{ animationDelay: '0.2s', opacity: 0 }}>

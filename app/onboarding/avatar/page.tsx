@@ -186,7 +186,9 @@ export default function AvatarOnboardingPage() {
                         : 'bg-[--color-surface] text-[--color-text] border-[--color-border]'
                     }`}
                   >
-                    <span>{g.emoji}</span>{g.label}
+                    <span>{g.emoji}</span>
+                    {gender === g.value && <span>✓</span>}
+                    {g.label}
                   </button>
                 ))}
               </div>
@@ -208,10 +210,11 @@ export default function AvatarOnboardingPage() {
                     }`}
                   >
                     <span className="text-2xl">{v.emoji}</span>
-                    <div>
+                    <div className="flex-1">
                       <p className={`text-sm font-bold leading-tight ${vibe === v.value ? 'text-[--color-text]' : 'text-[--color-muted]'}`}>{v.label}</p>
                       <p className="text-xs leading-tight opacity-70">{v.desc}</p>
                     </div>
+                    {vibe === v.value && <span className="text-[--color-accent-light] font-bold text-sm ml-auto">✓</span>}
                   </button>
                 ))}
               </div>

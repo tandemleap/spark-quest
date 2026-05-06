@@ -10,7 +10,7 @@ interface CardProps {
 }
 
 export function Card({ children, category, className = '', style, onClick }: CardProps) {
-  const bg = category ? CATEGORY_COLORS[category] : 'var(--color-surface)'
+  const bg = (category && CATEGORY_COLORS[category]) || 'var(--color-surface)'
 
   return (
     <div
