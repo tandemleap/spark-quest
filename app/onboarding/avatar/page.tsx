@@ -149,45 +149,51 @@ export default function AvatarOnboardingPage() {
         {/* SETUP — pick style before camera */}
         {state === 'setup' && (
           <>
-            <div className="bg-[--color-surface] border border-[--color-border] rounded-2xl px-4 py-4 text-sm text-[--color-muted] leading-relaxed">
-              <span className="text-[--color-text] font-semibold block mb-1">How it works</span>
-              Take a selfie and our AI will transform it into a custom avatar in the style you pick below. Your face is the starting point — the result is a stylized illustration just for you.
-            </div>
+            <p className="text-[--color-muted] text-base leading-snug">
+              Take a selfie. We&apos;ll turn it into a cool avatar just for you. Pick your style first.
+            </p>
 
             <div>
-              <p className="text-sm font-semibold text-[--color-text] mb-2">Gender preference</p>
+              <p className="text-sm font-semibold text-[--color-text] mb-3">I want my avatar to look like a...</p>
               <div className="flex gap-2 flex-wrap">
                 {GENDERS.map(g => (
                   <button
                     key={g.value}
+                    type="button"
                     onClick={() => setGender(g.value)}
-                    className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${
+                    style={{ touchAction: 'manipulation' }}
+                    className={`px-4 py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors ${
                       gender === g.value
                         ? 'bg-[--color-accent] text-white border-[--color-accent]'
-                        : 'bg-[--color-surface] text-[--color-muted] border-[--color-border]'
+                        : 'bg-[--color-surface] text-[--color-text] border-[--color-border]'
                     }`}
                   >
-                    {g.label}
+                    {gender === g.value ? '✓ ' : ''}{g.label}
                   </button>
                 ))}
               </div>
             </div>
 
             <div>
-              <p className="text-sm font-semibold text-[--color-text] mb-2">Avatar style</p>
+              <p className="text-sm font-semibold text-[--color-text] mb-3">Pick a style</p>
               <div className="grid grid-cols-3 gap-2">
                 {STYLES.map(s => (
                   <button
                     key={s.value}
+                    type="button"
                     onClick={() => setStyle(s.value)}
-                    className={`flex flex-col items-center gap-1.5 py-3 rounded-2xl border text-center transition-all ${
+                    style={{ touchAction: 'manipulation' }}
+                    className={`flex flex-col items-center gap-1.5 py-3 rounded-2xl border-2 text-center transition-colors ${
                       style === s.value
-                        ? 'bg-[--color-accent]/20 border-[--color-accent] text-[--color-accent-light]'
-                        : 'bg-[--color-surface] border-[--color-border] text-[--color-muted]'
+                        ? 'border-[--color-accent] bg-[--color-surface] text-[--color-text]'
+                        : 'border-[--color-border] bg-[--color-surface] text-[--color-muted]'
                     }`}
                   >
                     <span className="text-2xl">{s.emoji}</span>
                     <span className="text-xs font-semibold leading-tight">{s.label}</span>
+                    {style === s.value && (
+                      <span className="text-[10px] font-bold text-[--color-accent-light]">✓ selected</span>
+                    )}
                   </button>
                 ))}
               </div>
