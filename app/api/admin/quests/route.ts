@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
   if (!await auth(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { title, description, category, point_value, repeatable, expires_at } = body
+  const { title, description, category, point_value, repeatable, expires_at, created_by } = body
 
   if (!title || !category || !point_value) {
     return NextResponse.json({ error: 'title, category, and point_value required' }, { status: 400 })
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
   const supabase = getServiceSupabase()
   const { data, error } = await supabase
     .from('quests')
-    .insert({ title, description, category, point_value, repeatable: !!repeatable, expires_at: expires_at || null })
+    .insert({ title, description, category, point_value, repeatable: !!repeatable, expires_at: expires_at || null, created_by: created_by || null })
     .select()
     .single()
 

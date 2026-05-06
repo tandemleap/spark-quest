@@ -51,7 +51,12 @@ export default function HomePage() {
       {/* Header */}
       <div className="flex items-center justify-between animate-slide-down">
         <div className="flex items-center gap-3">
-          <Avatar avatarUrl={kid.avatar_url} handle={kid.name_handle} size="lg" />
+          <Link href="/onboarding/avatar" className="relative flex-shrink-0">
+            <Avatar avatarUrl={kid.avatar_url} handle={kid.name_handle} size="lg" />
+            <span className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-[--color-accent] rounded-full flex items-center justify-center text-white text-[10px] ring-2 ring-[--color-bg]">
+              {kid.avatar_url ? '✎' : '+'}
+            </span>
+          </Link>
           <div>
             <p className="text-[--color-muted] text-xs font-medium uppercase tracking-wide">SPARK Quest</p>
             <h1 className="text-xl font-bold text-[--color-text]">{kid.name_handle}</h1>

@@ -21,6 +21,23 @@ export async function GET(request: NextRequest) {
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  if (type === 'adventure') {
+    const enriched = await Promise.all(
+      (data ?? []).map(async (adv) => {
+        const { data: redemptions } = await supabase
+          .from('redemptions')
+          .select('points_spent, kid_id, kids(name_handle)')
+          .eq('reward_id', adv.id)
+          .eq('reward_type', 'adventure')
+        const points_contributed = redemptions?.reduce((s, r) => s + r.points_spent, 0) ?? 0
+        const contributors = redemptions?.map(r => ({ kid_id: r.kid_id, name_handle: (r.kids as unknown as { name_handle: string } | null)?.name_handle ?? 'Unknown', points_spent: r.points_spent })) ?? []
+        return { ...adv, points_contributed, contributors }
+      })
+    )
+    return NextResponse.json(enriched)
+  }
+
   return NextResponse.json(data)
 }
 

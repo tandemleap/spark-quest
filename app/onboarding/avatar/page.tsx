@@ -5,24 +5,47 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
-type AvatarState = 'camera' | 'preview' | 'generating' | 'done' | 'error' | 'skip_confirm'
+type AvatarState = 'setup' | 'camera' | 'preview' | 'generating' | 'result' | 'error'
+
+type Gender = 'neutral' | 'boy' | 'girl'
+type Style = 'cartoon' | 'anime' | 'fortnite' | 'pencil' | 'pixel' | 'watercolor'
+
+const STYLES: { value: Style; label: string; emoji: string }[] = [
+  { value: 'cartoon',    label: 'Cartoon',    emoji: '🎨' },
+  { value: 'anime',      label: 'Anime',      emoji: '⛩️' },
+  { value: 'fortnite',   label: 'Fortnite',   emoji: '🎮' },
+  { value: 'pencil',     label: 'Pencil Sketch', emoji: '✏️' },
+  { value: 'pixel',      label: 'Pixel Art',  emoji: '👾' },
+  { value: 'watercolor', label: 'Watercolor', emoji: '🖌️' },
+]
+
+const GENDERS: { value: Gender; label: string }[] = [
+  { value: 'neutral', label: 'No preference' },
+  { value: 'boy',     label: 'Guy / masculine' },
+  { value: 'girl',    label: 'Girl / feminine' },
+]
 
 export default function AvatarOnboardingPage() {
   const router = useRouter()
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [state, setState] = useState<AvatarState>('camera')
+  const streamRef = useRef<MediaStream | null>(null)
+
+  const [state, setState] = useState<AvatarState>('setup')
+  const [gender, setGender] = useState<Gender>('neutral')
+  const [style, setStyle] = useState<Style>('cartoon')
   const [capturedImage, setCapturedImage] = useState<string | null>(null)
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null)
   const [cameraError, setCameraError] = useState<string | null>(null)
-  const streamRef = useRef<MediaStream | null>(null)
+  const [hasUsedRetry, setHasUsedRetry] = useState(false)
+  const [isRetrySession, setIsRetrySession] = useState(false)
 
   useEffect(() => {
-    startCamera()
-    return () => stopCamera()
+    setHasUsedRetry(localStorage.getItem('spark_avatar_retried') === 'true')
   }, [])
 
   async function startCamera() {
+    setCameraError(null)
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 640 } },
@@ -33,7 +56,7 @@ export default function AvatarOnboardingPage() {
         await videoRef.current.play()
       }
     } catch {
-      setCameraError("Can't access camera. You can skip this and add your avatar later.")
+      setCameraError("Can't access camera. You can skip and add your avatar later.")
     }
   }
 
@@ -42,22 +65,23 @@ export default function AvatarOnboardingPage() {
     streamRef.current = null
   }
 
+  function openCamera() {
+    setState('camera')
+    startCamera()
+  }
+
   function capturePhoto() {
     const video = videoRef.current
     const canvas = canvasRef.current
     if (!video || !canvas) return
-
     canvas.width = 512
     canvas.height = 512
     const ctx = canvas.getContext('2d')!
-    // Draw square crop from center
     const size = Math.min(video.videoWidth, video.videoHeight)
     const sx = (video.videoWidth - size) / 2
     const sy = (video.videoHeight - size) / 2
     ctx.drawImage(video, sx, sy, size, size, 0, 0, 512, 512)
-
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
-    setCapturedImage(dataUrl)
+    setCapturedImage(canvas.toDataURL('image/jpeg', 0.85))
     stopCamera()
     setState('preview')
   }
@@ -72,148 +96,215 @@ export default function AvatarOnboardingPage() {
     if (!capturedImage) return
     const kidId = localStorage.getItem('spark_kid_id')
     if (!kidId) return
-
     setState('generating')
-
-    const base64 = capturedImage.split(',')[1]
-
     try {
       const res = await fetch('/api/avatar/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kid_id: kidId, image: base64 }),
+        body: JSON.stringify({ kid_id: kidId, image: capturedImage.split(',')[1], style, gender, force: isRetrySession }),
       })
-
-      if (!res.ok) throw new Error('Generation failed')
-
+      if (!res.ok) throw new Error()
       const { avatar_url } = await res.json()
       setGeneratedUrl(avatar_url)
-      setState('done')
+      localStorage.setItem('spark_kid_avatar', avatar_url)
+      setState('result')
     } catch {
       setState('error')
     }
   }
 
-  function skipToHome() {
+  function keepAvatar() {
     router.push('/home')
   }
+
+  function tryAgain() {
+    localStorage.setItem('spark_avatar_retried', 'true')
+    setHasUsedRetry(true)
+    setIsRetrySession(true)
+    setGeneratedUrl(null)
+    setCapturedImage(null)
+    setState('camera')
+    startCamera()
+  }
+
+  function skip() {
+    stopCamera()
+    router.push('/home')
+  }
+
+  useEffect(() => {
+    return () => stopCamera()
+  }, [])
 
   return (
     <main className="app-shell min-h-screen flex flex-col">
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* Header */}
-      <div className="px-6 pt-12 pb-4">
+      <div className="px-6 pt-10 pb-4">
         <h1 className="text-3xl font-bold text-[--color-text]">Your SPARK Avatar</h1>
-        <p className="text-[--color-muted] mt-1 text-sm">
-          {state === 'camera' && "Take a selfie and we'll turn it into a cartoon avatar."}
-          {state === 'preview' && "Looking good! Generate your avatar?"}
-          {state === 'generating' && "Crafting your look..."}
-          {state === 'done' && "Your avatar is ready! 🎉"}
-          {state === 'error' && "Something went wrong. Skip for now?"}
-        </p>
       </div>
 
-      {/* Camera / Preview area */}
-      <div className="flex-1 px-6 flex flex-col items-center gap-6">
+      <div className="flex-1 px-6 flex flex-col gap-5 overflow-y-auto pb-10">
 
-        {/* Camera view */}
-        {state === 'camera' && (
-          <div className="w-full aspect-square rounded-3xl overflow-hidden bg-[--color-surface] relative">
-            {cameraError ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
-                <span className="text-4xl">📷</span>
-                <p className="text-[--color-muted] text-sm">{cameraError}</p>
+        {/* SETUP — pick style before camera */}
+        {state === 'setup' && (
+          <>
+            <div className="bg-[--color-surface] border border-[--color-border] rounded-2xl px-4 py-4 text-sm text-[--color-muted] leading-relaxed">
+              <span className="text-[--color-text] font-semibold block mb-1">How it works</span>
+              Take a selfie and our AI will transform it into a custom avatar in the style you pick below. Your face is the starting point — the result is a stylized illustration just for you.
+            </div>
+
+            <div>
+              <p className="text-sm font-semibold text-[--color-text] mb-2">Gender preference</p>
+              <div className="flex gap-2 flex-wrap">
+                {GENDERS.map(g => (
+                  <button
+                    key={g.value}
+                    onClick={() => setGender(g.value)}
+                    className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${
+                      gender === g.value
+                        ? 'bg-[--color-accent] text-white border-[--color-accent]'
+                        : 'bg-[--color-surface] text-[--color-muted] border-[--color-border]'
+                    }`}
+                  >
+                    {g.label}
+                  </button>
+                ))}
               </div>
-            ) : (
-              <video
-                ref={videoRef}
-                playsInline
-                muted
-                autoPlay
-                className="w-full h-full object-cover scale-x-[-1]"
-              />
-            )}
-          </div>
+            </div>
+
+            <div>
+              <p className="text-sm font-semibold text-[--color-text] mb-2">Avatar style</p>
+              <div className="grid grid-cols-3 gap-2">
+                {STYLES.map(s => (
+                  <button
+                    key={s.value}
+                    onClick={() => setStyle(s.value)}
+                    className={`flex flex-col items-center gap-1.5 py-3 rounded-2xl border text-center transition-all ${
+                      style === s.value
+                        ? 'bg-[--color-accent]/20 border-[--color-accent] text-[--color-accent-light]'
+                        : 'bg-[--color-surface] border-[--color-border] text-[--color-muted]'
+                    }`}
+                  >
+                    <span className="text-2xl">{s.emoji}</span>
+                    <span className="text-xs font-semibold leading-tight">{s.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 pt-2">
+              <Button size="lg" onClick={openCamera}>
+                📸 Open Camera
+              </Button>
+              <Button variant="ghost" size="lg" onClick={skip}>
+                Skip for now
+              </Button>
+            </div>
+          </>
         )}
 
-        {/* Captured preview */}
-        {(state === 'preview' || state === 'generating') && capturedImage && (
-          <div className="w-full aspect-square rounded-3xl overflow-hidden relative">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={capturedImage} alt="Your selfie" className="w-full h-full object-cover" />
-            {state === 'generating' && (
+        {/* CAMERA */}
+        {state === 'camera' && (
+          <>
+            <p className="text-sm text-[--color-muted]">
+              Position your face in the frame, then tap the button below.
+            </p>
+            <div className="w-full aspect-square rounded-3xl overflow-hidden bg-[--color-surface] relative">
+              {cameraError ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
+                  <span className="text-4xl">📷</span>
+                  <p className="text-[--color-muted] text-sm">{cameraError}</p>
+                </div>
+              ) : (
+                <video ref={videoRef} playsInline muted autoPlay className="w-full h-full object-cover scale-x-[-1]" />
+              )}
+            </div>
+            <div className="flex flex-col gap-3">
+              {!cameraError && (
+                <Button size="lg" onClick={capturePhoto}>📸 Take Selfie</Button>
+              )}
+              <Button variant="secondary" size="lg" onClick={() => { stopCamera(); setState('setup') }}>
+                ← Back
+              </Button>
+              <Button variant="ghost" size="lg" onClick={skip}>Skip for now</Button>
+            </div>
+          </>
+        )}
+
+        {/* PREVIEW */}
+        {state === 'preview' && capturedImage && (
+          <>
+            <p className="text-sm text-[--color-muted]">
+              Happy with the shot? Tap below to generate your <strong className="text-[--color-text]">{STYLES.find(s => s.value === style)?.label}</strong> avatar.
+            </p>
+            <div className="w-full aspect-square rounded-3xl overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={capturedImage} alt="Your selfie" className="w-full h-full object-cover" />
+            </div>
+            <div className="flex flex-col gap-3">
+              <Button size="lg" onClick={() => generateAvatar()}>✨ Make My Avatar</Button>
+              <Button variant="secondary" size="lg" onClick={retake}>Retake</Button>
+              <Button variant="ghost" size="lg" onClick={skip}>Skip for now</Button>
+            </div>
+          </>
+        )}
+
+        {/* GENERATING */}
+        {state === 'generating' && capturedImage && (
+          <>
+            <div className="w-full aspect-square rounded-3xl overflow-hidden relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={capturedImage} alt="Your selfie" className="w-full h-full object-cover" />
               <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-4">
                 <LoadingSpinner size="lg" />
-                <p className="text-white font-semibold animate-pulse">Crafting your look...</p>
+                <p className="text-white font-semibold animate-pulse">Crafting your look…</p>
+                <p className="text-white/60 text-xs">This takes about 20–30 seconds</p>
               </div>
-            )}
-          </div>
+            </div>
+          </>
         )}
 
-        {/* Generated avatar */}
-        {state === 'done' && generatedUrl && (
-          <div className="w-full aspect-square rounded-3xl overflow-hidden animate-pop-in">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={generatedUrl} alt="Your avatar" className="w-full h-full object-cover" />
-          </div>
-        )}
-
-        {state === 'error' && (
-          <div className="w-full aspect-square rounded-3xl bg-[--color-surface] flex flex-col items-center justify-center gap-3">
-            <span className="text-5xl">😬</span>
-            <p className="text-[--color-muted] text-sm text-center px-6">
-              Avatar generation timed out. You can still play — add your avatar later from your profile.
+        {/* RESULT */}
+        {state === 'result' && generatedUrl && (
+          <>
+            <p className="text-sm text-[--color-muted] text-center">
+              {hasUsedRetry
+                ? 'Looking good! Tap below to save your avatar.'
+                : 'Love it or want to try a different look?'}
             </p>
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex flex-col gap-3 w-full pb-8">
-          {state === 'camera' && (
-            <>
-              {!cameraError && (
-                <Button size="lg" onClick={capturePhoto}>
-                  📸 Take Selfie
+            <div className="w-full aspect-square rounded-3xl overflow-hidden animate-pop-in">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={generatedUrl} alt="Your avatar" className="w-full h-full object-cover" />
+            </div>
+            <div className="flex flex-col gap-3">
+              <Button size="lg" onClick={keepAvatar}>
+                ✅ Keep it — let&apos;s go!
+              </Button>
+              {!hasUsedRetry && (
+                <Button variant="secondary" size="lg" onClick={tryAgain}>
+                  🔁 Try one more time
                 </Button>
               )}
-              <Button variant="ghost" size="lg" onClick={skipToHome}>
-                Skip for now
-              </Button>
-            </>
-          )}
+            </div>
+          </>
+        )}
 
-          {state === 'preview' && (
-            <>
-              <Button size="lg" onClick={generateAvatar}>
-                ✨ Make My Avatar
-              </Button>
-              <Button variant="secondary" size="lg" onClick={retake}>
-                Retake
-              </Button>
-              <Button variant="ghost" size="lg" onClick={skipToHome}>
-                Skip for now
-              </Button>
-            </>
-          )}
-
-          {state === 'done' && (
-            <Button size="lg" onClick={skipToHome}>
-              Looks great! Let&apos;s go →
-            </Button>
-          )}
-
-          {state === 'error' && (
-            <>
-              <Button variant="secondary" size="lg" onClick={retake}>
-                Try again
-              </Button>
-              <Button variant="ghost" size="lg" onClick={skipToHome}>
-                Skip for now
-              </Button>
-            </>
-          )}
-        </div>
+        {/* ERROR */}
+        {state === 'error' && (
+          <>
+            <div className="w-full aspect-square rounded-3xl bg-[--color-surface] flex flex-col items-center justify-center gap-3">
+              <span className="text-5xl">😬</span>
+              <p className="text-[--color-muted] text-sm text-center px-6">
+                Avatar generation timed out. You can try again or skip and add it later.
+              </p>
+            </div>
+            <div className="flex flex-col gap-3">
+              <Button variant="secondary" size="lg" onClick={retake}>Try again</Button>
+              <Button variant="ghost" size="lg" onClick={skip}>Skip for now</Button>
+            </div>
+          </>
+        )}
       </div>
     </main>
   )

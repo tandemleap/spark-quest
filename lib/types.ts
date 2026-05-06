@@ -1,24 +1,30 @@
-export type QuestCategory = 'creativity' | 'movement' | 'learning' | 'community'
+export type QuestCategory = 'physical' | 'mental' | 'emotional' | 'social' | 'creative' | 'challenge'
 
 export const CATEGORY_COLORS: Record<QuestCategory, string> = {
-  creativity: 'var(--color-creativity)',
-  movement: 'var(--color-movement)',
-  learning: 'var(--color-learning)',
-  community: 'var(--color-community)',
+  physical:  '#C97D20',
+  mental:    '#4A7C59',
+  emotional: '#9B7FA6',
+  social:    '#4A7A9B',
+  creative:  '#C2714F',
+  challenge: '#B04A4A',
 }
 
 export const CATEGORY_TEXT_COLORS: Record<QuestCategory, string> = {
-  creativity: 'var(--color-creativity-text)',
-  movement: 'var(--color-movement-text)',
-  learning: 'var(--color-learning-text)',
-  community: 'var(--color-community-text)',
+  physical:  '#3D2800',
+  mental:    '#0F2218',
+  emotional: '#1E1028',
+  social:    '#0D1E28',
+  creative:  '#3D1F10',
+  challenge: '#280F0F',
 }
 
 export const CATEGORY_LABELS: Record<QuestCategory, string> = {
-  creativity: 'Creativity',
-  movement: 'Movement',
-  learning: 'Learning',
-  community: 'Community',
+  physical:  'Physical',
+  mental:    'Mental',
+  emotional: 'Emotional',
+  social:    'Social',
+  creative:  'Creative',
+  challenge: 'Challenge',
 }
 
 export interface Kid {
@@ -39,6 +45,7 @@ export interface Quest {
   repeatable: boolean
   expires_at: string | null
   is_active: boolean
+  created_by: string | null
   created_at: string
 }
 

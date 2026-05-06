@@ -15,16 +15,12 @@
   --color-muted: #888888;
 
   /* Quest category card colors */
-  --color-creativity: #C2714F;
-  --color-movement: #C97D20;
-  --color-learning: #4A7C59;
-  --color-community: #8B6FA6;
-
-  /* Category text (dark on warm cards) */
-  --color-creativity-text: #3D1F10;
-  --color-movement-text: #3D2800;
-  --color-learning-text: #0F2218;
-  --color-community-text: #1E1028;
+  --color-physical:  #C97D20;
+  --color-mental:    #4A7C59;
+  --color-emotional: #9B7FA6;
+  --color-social:    #4A7A9B;
+  --color-creative:  #C2714F;
+  --color-challenge: #B04A4A;
 
   /* Typography */
   --font-display: "Space Grotesk", system-ui, sans-serif;
