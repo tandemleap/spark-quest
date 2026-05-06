@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
-type AvatarState = 'setup' | 'camera' | 'preview' | 'generating' | 'result' | 'error'
+type AvatarState = 'setup' | 'camera' | 'preview' | 'generating' | 'result' | 'compare' | 'error'
 
 type Gender = 'neutral' | 'boy' | 'girl'
 type Style = '3d' | 'emoji' | 'videogame' | 'pixels' | 'clay' | 'toy'
@@ -36,6 +36,7 @@ export default function AvatarOnboardingPage() {
   const [style, setStyle] = useState<Style>('3d')
   const [capturedImage, setCapturedImage] = useState<string | null>(null)
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null)
+  const [v1Url, setV1Url] = useState<string | null>(null)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [hasUsedRetry, setHasUsedRetry] = useState(false)
   const [forceReplace, setForceReplace] = useState(false)
@@ -93,7 +94,7 @@ export default function AvatarOnboardingPage() {
     startCamera()
   }
 
-  async function generateAvatar() {
+  async function generateAvatar(isRetry = false) {
     if (!capturedImage) return
     const kidId = localStorage.getItem('spark_kid_id')
     if (!kidId) return
@@ -102,16 +103,36 @@ export default function AvatarOnboardingPage() {
       const res = await fetch('/api/avatar/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kid_id: kidId, image: capturedImage.split(',')[1], style, gender, force: forceReplace }),
+        body: JSON.stringify({ kid_id: kidId, image: capturedImage.split(',')[1], style, gender, force: forceReplace, isRetry }),
       })
       if (!res.ok) throw new Error()
       const { avatar_url } = await res.json()
-      setGeneratedUrl(avatar_url)
-      localStorage.setItem('spark_kid_avatar', avatar_url)
-      setState('result')
+      if (isRetry) {
+        setGeneratedUrl(avatar_url)
+        setState('compare')
+      } else {
+        setGeneratedUrl(avatar_url)
+        setV1Url(avatar_url)
+        localStorage.setItem('spark_kid_avatar', avatar_url)
+        setState('result')
+      }
     } catch {
       setState('error')
     }
+  }
+
+  async function pickAvatar(url: string) {
+    const kidId = localStorage.getItem('spark_kid_id')
+    if (kidId && url !== v1Url) {
+      // v2 chosen — update DB to point at the retry file
+      await fetch(`/api/kids/${kidId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatar_url: url }),
+      })
+    }
+    localStorage.setItem('spark_kid_avatar', url)
+    router.push('/home')
   }
 
   function keepAvatar() {
@@ -121,7 +142,6 @@ export default function AvatarOnboardingPage() {
   function tryAgain() {
     setHasUsedRetry(true)
     setForceReplace(true)
-    setGeneratedUrl(null)
     setCapturedImage(null)
     setState('camera')
     startCamera()
@@ -249,7 +269,7 @@ export default function AvatarOnboardingPage() {
               <img src={capturedImage} alt="Your selfie" className="w-full h-full object-cover" />
             </div>
             <div className="flex flex-col gap-3">
-              <Button size="lg" onClick={() => generateAvatar()}>✨ Make My Avatar</Button>
+              <Button size="lg" onClick={() => generateAvatar(hasUsedRetry)}>✨ Make My Avatar</Button>
               <Button variant="secondary" size="lg" onClick={retake}>Retake</Button>
               <Button variant="ghost" size="lg" onClick={skip}>Skip for now</Button>
             </div>
@@ -292,6 +312,40 @@ export default function AvatarOnboardingPage() {
                   🔁 Try one more time
                 </Button>
               )}
+            </div>
+          </>
+        )}
+
+        {/* COMPARE — pick avatar 1 or avatar 2 */}
+        {state === 'compare' && v1Url && generatedUrl && (
+          <>
+            <p className="text-base font-semibold text-[--color-text] text-center">Pick your favorite!</p>
+            <p className="text-sm text-[--color-muted] text-center -mt-3">Tap the one you want to keep.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                style={{ touchAction: 'manipulation' }}
+                onClick={() => pickAvatar(v1Url)}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-full aspect-square rounded-2xl overflow-hidden ring-2 ring-[--color-border] hover:ring-[--color-accent] transition-all">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={v1Url} alt="Avatar 1" className="w-full h-full object-cover" />
+                </div>
+                <span className="text-sm font-bold text-[--color-text]">Avatar 1</span>
+              </button>
+              <button
+                type="button"
+                style={{ touchAction: 'manipulation' }}
+                onClick={() => pickAvatar(generatedUrl)}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-full aspect-square rounded-2xl overflow-hidden ring-2 ring-[--color-border] hover:ring-[--color-accent] transition-all">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={generatedUrl} alt="Avatar 2" className="w-full h-full object-cover" />
+                </div>
+                <span className="text-sm font-bold text-[--color-text]">Avatar 2</span>
+              </button>
             </div>
           </>
         )}

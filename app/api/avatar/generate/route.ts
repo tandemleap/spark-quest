@@ -23,7 +23,7 @@ const GENDER_PROMPTS: Record<string, string> = {
 }
 
 export async function POST(request: NextRequest) {
-  const { kid_id, image, style = '3d', gender = 'neutral', force = false } = await request.json()
+  const { kid_id, image, style = '3d', gender = 'neutral', force = false, isRetry = false } = await request.json()
 
   if (!kid_id || !image) {
     return NextResponse.json({ error: 'kid_id and image required' }, { status: 400 })
@@ -66,9 +66,12 @@ export async function POST(request: NextRequest) {
     const imgRes = await fetch(imageUrl)
     const imgBuffer = await imgRes.arrayBuffer()
 
+    // Retries go to a separate file so v1 is preserved for the compare screen
+    const filename = isRetry ? `${kid_id}_v2.webp` : `${kid_id}.webp`
+
     const { error: uploadError } = await supabase.storage
       .from('avatars')
-      .upload(`${kid_id}.webp`, imgBuffer, {
+      .upload(filename, imgBuffer, {
         contentType: 'image/webp',
         upsert: true,
       })
@@ -77,12 +80,15 @@ export async function POST(request: NextRequest) {
 
     const { data: { publicUrl } } = supabase.storage
       .from('avatars')
-      .getPublicUrl(`${kid_id}.webp`)
+      .getPublicUrl(filename)
 
-    await supabase
-      .from('kids')
-      .update({ avatar_url: publicUrl })
-      .eq('id', kid_id)
+    // Only update the DB for v1 — v2 stays provisional until the user picks it
+    if (!isRetry) {
+      await supabase
+        .from('kids')
+        .update({ avatar_url: publicUrl })
+        .eq('id', kid_id)
+    }
 
     return NextResponse.json({ avatar_url: publicUrl })
   } catch (err) {
