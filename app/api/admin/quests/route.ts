@@ -24,16 +24,30 @@ export async function POST(request: NextRequest) {
   if (!await auth(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { title, description, category, point_value, repeatable, expires_at, created_by } = body
+  const {
+    title, description, domain_tags, point_value, repeatable,
+    expires_at, created_by, is_grit_quest, grit_powerup_description, grit_powerup_points,
+  } = body
 
-  if (!title || !category || !point_value) {
-    return NextResponse.json({ error: 'title, category, and point_value required' }, { status: 400 })
+  if (!title || !point_value) {
+    return NextResponse.json({ error: 'title and point_value required' }, { status: 400 })
   }
 
   const supabase = getServiceSupabase()
   const { data, error } = await supabase
     .from('quests')
-    .insert({ title, description, category, point_value, repeatable: !!repeatable, expires_at: expires_at || null, created_by: created_by || null })
+    .insert({
+      title,
+      description: description || null,
+      domain_tags: domain_tags ?? [],
+      point_value,
+      repeatable: !!repeatable,
+      expires_at: expires_at || null,
+      created_by: created_by || null,
+      is_grit_quest: !!is_grit_quest,
+      grit_powerup_description: is_grit_quest ? (grit_powerup_description || null) : null,
+      grit_powerup_points: is_grit_quest ? (grit_powerup_points || null) : null,
+    })
     .select()
     .single()
 
@@ -48,6 +62,12 @@ export async function PATCH(request: NextRequest) {
   const { id, ...updates } = body
 
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
+
+  // Clear powerup fields if turning off grit
+  if (updates.is_grit_quest === false) {
+    updates.grit_powerup_description = null
+    updates.grit_powerup_points = null
+  }
 
   const supabase = getServiceSupabase()
   const { data, error } = await supabase

@@ -3,16 +3,17 @@
 import { useState, useEffect } from 'react'
 import { AdminNav } from '@/components/layout/AdminNav'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
-import { CATEGORY_LABELS } from '@/lib/types'
-import type { QuestCategory } from '@/lib/types'
+import { DOMAIN_LABELS, DOMAIN_EMOJIS } from '@/lib/types'
+import type { Domain } from '@/lib/types'
 
 interface Completion {
   id: string
   completed_at: string
   verified_by_initials: string | null
   points_awarded: number
+  powerup_claimed: boolean
   kids: { id: string; name_handle: string; avatar_url: string | null }
-  quests: { id: string; title: string; category: QuestCategory; point_value: number }
+  quests: { id: string; title: string; domain_tags: Domain[]; point_value: number }
 }
 
 export default function AdminCompletionsPage() {
@@ -66,7 +67,8 @@ export default function AdminCompletionsPage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-[--color-muted]">
-                  <span>{CATEGORY_LABELS[c.quests?.category]}</span>
+                  <span>{(c.quests?.domain_tags ?? []).map(d => `${DOMAIN_EMOJIS[d]} ${DOMAIN_LABELS[d]}`).join(' · ') || '—'}</span>
+                  {c.powerup_claimed && <span className="text-orange-400">🔥 +Grit</span>}
                   <span>·</span>
                   <span>{new Date(c.completed_at).toLocaleDateString()} {new Date(c.completed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   {c.verified_by_initials && (

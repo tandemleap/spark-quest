@@ -7,13 +7,54 @@ import { PointsBadge } from '@/components/ui/PointsBadge'
 import { RedeemDialog } from '@/components/rewards/RedeemDialog'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { showPointsToast } from '@/components/ui/PointsToast'
-import type { Kid, Drop, Adventure } from '@/lib/types'
+import {
+  DOMAIN_COLORS, DOMAIN_LABELS, DOMAIN_EMOJIS,
+  checkDomainEligibility, kidDomainPoints,
+} from '@/lib/types'
+import type { Kid, Drop, Adventure, Domain, DomainRequirements } from '@/lib/types'
 
 interface PendingRedeem {
   type: 'drop' | 'adventure'
   id: string
   title: string
   cost: number
+}
+
+function DomainProgressBars({ requirements, kidPoints }: {
+  requirements: DomainRequirements
+  kidPoints: Record<Domain, number>
+}) {
+  const entries = (Object.entries(requirements) as [Domain, number][]).filter(([, n]) => n > 0)
+  if (entries.length === 0) return null
+  return (
+    <div className="mt-3 pt-3 border-t border-white/10 flex flex-col gap-1.5">
+      <p className="text-xs text-[--color-muted] font-semibold uppercase tracking-wide mb-0.5">Domain Requirements</p>
+      {entries.map(([domain, needed]) => {
+        const current = kidPoints[domain] ?? 0
+        const met = current >= needed
+        const pct = Math.min(100, Math.round((current / needed) * 100))
+        return (
+          <div key={domain} className="flex items-center gap-2">
+            <span className="text-xs w-16 flex-shrink-0 font-medium" style={{ color: DOMAIN_COLORS[domain] }}>
+              {DOMAIN_EMOJIS[domain]} {DOMAIN_LABELS[domain]}
+            </span>
+            <div className="flex-1 bg-white/10 rounded-full h-1.5">
+              <div
+                className="h-1.5 rounded-full transition-all duration-500"
+                style={{
+                  width: `${pct}%`,
+                  background: met ? '#4ade80' : DOMAIN_COLORS[domain],
+                }}
+              />
+            </div>
+            <span className={`text-xs flex-shrink-0 font-semibold ${met ? 'text-green-400' : 'text-[--color-muted]'}`}>
+              {met ? '✓' : `${current}/${needed}`}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 export default function RewardsPage() {
@@ -43,7 +84,6 @@ export default function RewardsPage() {
 
   async function handleRedeem() {
     if (!pending || !kidId || !kid) return
-
     const res = await fetch('/api/rewards/redeem', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -54,14 +94,12 @@ export default function RewardsPage() {
         points: pending.cost,
       }),
     })
-
     if (!res.ok) {
-      const { error } = await res.json()
-      alert(error || 'Something went wrong')
+      const body = await res.json()
+      alert(body.error || 'Something went wrong')
       setPending(null)
       return
     }
-
     setKid(prev => prev ? { ...prev, available_points: prev.available_points - pending.cost } : prev)
     setRedeemed(prev => new Set([...prev, pending.id]))
     showPointsToast(-pending.cost)
@@ -75,6 +113,8 @@ export default function RewardsPage() {
       </div>
     )
   }
+
+  const myDomainPoints = kid ? kidDomainPoints(kid) : { body: 0, brain: 0, heart: 0, hands: 0, team: 0 }
 
   return (
     <div className="px-4 pt-8 pb-4">
@@ -92,9 +132,7 @@ export default function RewardsPage() {
         <button
           onClick={() => setActiveTab('drops')}
           className={`flex-1 py-3 rounded-2xl text-sm font-semibold transition-all duration-150 ${
-            activeTab === 'drops'
-              ? 'bg-[--color-accent] text-white'
-              : 'bg-[--color-surface] text-[--color-muted] border border-[--color-border]'
+            activeTab === 'drops' ? 'bg-[--color-accent] text-white' : 'bg-[--color-surface] text-[--color-muted] border border-[--color-border]'
           }`}
         >
           🎁 Drops
@@ -102,9 +140,7 @@ export default function RewardsPage() {
         <button
           onClick={() => setActiveTab('adventures')}
           className={`flex-1 py-3 rounded-2xl text-sm font-semibold transition-all duration-150 ${
-            activeTab === 'adventures'
-              ? 'bg-[--color-accent] text-white'
-              : 'bg-[--color-surface] text-[--color-muted] border border-[--color-border]'
+            activeTab === 'adventures' ? 'bg-[--color-accent] text-white' : 'bg-[--color-surface] text-[--color-muted] border border-[--color-border]'
           }`}
         >
           🗺 Adventures
@@ -118,6 +154,7 @@ export default function RewardsPage() {
             const alreadyRedeemed = redeemed.has(drop.id)
             const canAfford = (kid?.available_points ?? 0) >= drop.point_cost
             const outOfStock = drop.quantity_available !== null && drop.quantity_available <= 0
+            const { eligible } = checkDomainEligibility(myDomainPoints, drop.domain_requirements ?? {})
 
             return (
               <Card
@@ -139,14 +176,22 @@ export default function RewardsPage() {
                     )}
                   </div>
                 </div>
-                <Button
-                  size="sm"
-                  variant={canAfford && !outOfStock && !alreadyRedeemed ? 'primary' : 'secondary'}
-                  disabled={outOfStock || alreadyRedeemed}
-                  onClick={() => setPending({ type: 'drop', id: drop.id, title: drop.title, cost: drop.point_cost })}
-                >
-                  {alreadyRedeemed ? '✓ Redeemed' : outOfStock ? 'Out of Stock' : `Spend ${drop.point_cost} pts`}
-                </Button>
+
+                <DomainProgressBars requirements={drop.domain_requirements ?? {}} kidPoints={myDomainPoints} />
+
+                <div className="mt-3">
+                  <Button
+                    size="sm"
+                    variant={canAfford && eligible && !outOfStock && !alreadyRedeemed ? 'primary' : 'secondary'}
+                    disabled={outOfStock || alreadyRedeemed || !eligible}
+                    onClick={() => setPending({ type: 'drop', id: drop.id, title: drop.title, cost: drop.point_cost })}
+                  >
+                    {alreadyRedeemed ? '✓ Redeemed'
+                      : outOfStock ? 'Out of Stock'
+                      : !eligible ? 'Domain requirements needed'
+                      : `Spend ${drop.point_cost} pts`}
+                  </Button>
+                </div>
               </Card>
             )
           })}
@@ -165,6 +210,7 @@ export default function RewardsPage() {
             const pct = Math.min(100, Math.round((contributed / totalNeeded) * 100))
             const alreadyContributed = redeemed.has(adv.id)
             const canAfford = (kid?.available_points ?? 0) >= adv.point_cost_per_kid
+            const { eligible } = checkDomainEligibility(myDomainPoints, adv.domain_requirements ?? {})
 
             return (
               <Card
@@ -184,31 +230,32 @@ export default function RewardsPage() {
                   <p className="text-[--color-muted] text-sm mb-3">{adv.description}</p>
                 )}
 
-                {/* Progress */}
+                {/* Group progress */}
                 <div className="mb-3">
                   <div className="flex justify-between text-xs text-[--color-muted] mb-1.5">
                     <span>{contributed} / {totalNeeded} pts</span>
                     <span>{adv.contributors_count ?? 0} / {adv.kids_threshold} kids</span>
                   </div>
                   <div className="w-full bg-white/10 rounded-full h-2.5">
-                    <div
-                      className="bg-[--color-accent] h-2.5 rounded-full transition-all duration-700"
-                      style={{ width: `${pct}%` }}
-                    />
+                    <div className="bg-[--color-accent] h-2.5 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
+                <DomainProgressBars requirements={adv.domain_requirements ?? {}} kidPoints={myDomainPoints} />
+
+                <div className="flex items-center justify-between mt-3">
                   <p className="text-xs text-[--color-muted]">
                     Your share: <span className="text-[--color-text] font-semibold">{adv.point_cost_per_kid} pts</span>
                   </p>
                   <Button
                     size="sm"
-                    variant={canAfford && !alreadyContributed ? 'primary' : 'secondary'}
-                    disabled={alreadyContributed || (!adv.stays_open_after_unlock && adv.is_unlocked)}
+                    variant={canAfford && eligible && !alreadyContributed ? 'primary' : 'secondary'}
+                    disabled={alreadyContributed || !eligible || (!adv.stays_open_after_unlock && adv.is_unlocked)}
                     onClick={() => setPending({ type: 'adventure', id: adv.id, title: adv.title, cost: adv.point_cost_per_kid })}
                   >
-                    {alreadyContributed ? '✓ Contributed' : `Contribute ${adv.point_cost_per_kid} pts`}
+                    {alreadyContributed ? '✓ Contributed'
+                      : !eligible ? 'Domain requirements needed'
+                      : `Contribute ${adv.point_cost_per_kid} pts`}
                   </Button>
                 </div>
               </Card>
@@ -220,7 +267,6 @@ export default function RewardsPage() {
         </div>
       )}
 
-      {/* Confirm dialog */}
       {pending && kid && (
         <RedeemDialog
           title={pending.title}

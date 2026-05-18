@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase'
+import type { Domain, DomainRequirements } from '@/lib/types'
 
 export async function POST(request: NextRequest) {
   const { kid_id, reward_type, reward_id, points } = await request.json()
@@ -13,6 +14,55 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = getServiceSupabase()
+  const table = reward_type === 'adventure' ? 'adventures' : 'drops'
+
+  // Fetch reward to get domain requirements
+  const { data: reward } = await supabase
+    .from(table)
+    .select('domain_requirements')
+    .eq('id', reward_id)
+    .single()
+
+  const requirements = (reward?.domain_requirements ?? {}) as DomainRequirements
+  const reqEntries = (Object.entries(requirements) as [Domain, number][]).filter(([, n]) => n > 0)
+
+  // Check domain eligibility
+  if (reqEntries.length > 0) {
+    const { data: kid } = await supabase
+      .from('kids')
+      .select('body_points, brain_points, heart_points, hands_points, team_points')
+      .eq('id', kid_id)
+      .single()
+
+    const kidPoints: Record<string, number> = {
+      body:  kid?.body_points  ?? 0,
+      brain: kid?.brain_points ?? 0,
+      heart: kid?.heart_points ?? 0,
+      hands: kid?.hands_points ?? 0,
+      team:  kid?.team_points  ?? 0,
+    }
+
+    const unmet = reqEntries
+      .filter(([domain, needed]) => (kidPoints[domain] ?? 0) < needed)
+      .map(([domain, needed]) => ({ domain, needed, current: kidPoints[domain] ?? 0 }))
+
+    if (unmet.length > 0) {
+      // Fetch 2-3 suggested quests per unmet domain
+      const unmetDomains = unmet.map(u => u.domain)
+      const { data: suggested } = await supabase
+        .from('quests')
+        .select('id, title, point_value, domain_tags')
+        .eq('is_active', true)
+        .overlaps('domain_tags', unmetDomains)
+        .limit(3)
+
+      return NextResponse.json({
+        error: `You need more ${unmet.map(u => u.domain).join(', ')} points to unlock this reward.`,
+        unmet,
+        suggestedQuests: suggested ?? [],
+      }, { status: 403 })
+    }
+  }
 
   const { error } = await supabase.rpc('redeem_reward', {
     p_kid_id: kid_id,

@@ -26,17 +26,27 @@ Live at: https://spark-quest-theta.vercel.app/
 - Avatar generation: `export const maxDuration = 60` on the route (Vercel Pro required)
 - CSS variable colors with opacity (`bg-[--color-accent]/20`) don't work reliably in Tailwind v4 — use `border-2` + explicit checkmark indicators for selected states instead
 
-## Quest Categories
-Valid values: `physical`, `mental`, `emotional`, `social`, `creative`, `challenge`
-Colors and labels defined in `lib/types.ts` (`CATEGORY_COLORS`, `CATEGORY_TEXT_COLORS`, `CATEGORY_LABELS`).
-Card/QuestCard components fall back to `var(--color-surface)` for unrecognized categories.
-If quests exist with old category names, fix with:
-```sql
-update quests set category = 'creative'  where category = 'creativity';
-update quests set category = 'physical'  where category = 'movement';
-update quests set category = 'mental'    where category = 'learning';
-update quests set category = 'social'    where category = 'community';
-```
+## Domain System (replaces categories)
+Five domains: `body` (terracotta), `brain` (amber), `heart` (mauve), `hands` (sage), `team` (violet).
+Defined in `lib/types.ts`: `DOMAIN_COLORS`, `DOMAIN_TEXT_COLORS`, `DOMAIN_LABELS`, `DOMAIN_EMOJIS`, `ALL_DOMAINS`.
+- Quests have `domain_tags: Domain[]` (multi-select, first tag wins for card color)
+- Kids have `body_points`, `brain_points`, `heart_points`, `hands_points`, `team_points` columns
+- Drops/Adventures have `domain_requirements: DomainRequirements` (JSONB, e.g. `{ "body": 20, "team": 10 }`)
+- `award_quest_points` RPC atomically increments domain columns when awarding points
+- Domain eligibility checked client-side (progress bars on reward cards) and server-side at redemption
+
+## Grit Mechanic
+- Quests have `is_grit_quest: boolean` — shows 🔥 flame badge on card
+- Grit quests have `grit_powerup_description` and `grit_powerup_points` fields
+- After PIN + initials in QuestVerifyOverlay, a powerup screen appears: "Did you also do X? (+Y pts)"
+- Staff taps "Yes" or "Not this time" — one PIN entry covers both; `powerup_claimed` sent to `/api/quests/complete`
+- `quest_completions` has `powerup_claimed boolean` to track this
+
+## Featured Reward
+- One reward (drop or adventure) can be `is_featured = true` at a time
+- Admin enables via "⭐ Feature" button in `/admin/rewards` — API auto-clears all other featured flags
+- Home page fetches `/api/featured-reward` — returns featured item, fallback to highest-tier active adventure
+- `FeaturedReward` type in `lib/types.ts` = `{ type: 'adventure' | 'drop' } & (Adventure | Drop)`
 
 ## Avatar Generation
 - Model: `fofr/face-to-sticker` — always produces sticker/cartoon art regardless of style prompts

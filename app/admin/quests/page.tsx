@@ -3,17 +3,18 @@
 import { useState, useEffect, FormEvent } from 'react'
 import { AdminNav } from '@/components/layout/AdminNav'
 import { Button } from '@/components/ui/Button'
-import { CATEGORY_LABELS } from '@/lib/types'
-import type { Quest, QuestCategory } from '@/lib/types'
-
-const CATEGORIES: QuestCategory[] = ['physical', 'mental', 'emotional', 'social', 'creative', 'challenge']
+import { ALL_DOMAINS, DOMAIN_LABELS, DOMAIN_EMOJIS, DOMAIN_COLORS } from '@/lib/types'
+import type { Quest, Domain } from '@/lib/types'
 
 const DEFAULT_FORM = {
   title: '',
   description: '',
-  category: 'physical' as QuestCategory,
+  domain_tags: [] as Domain[],
   point_value: 10,
   repeatable: false,
+  is_grit_quest: false,
+  grit_powerup_description: '',
+  grit_powerup_points: '' as string | number,
   expires_at: '',
   created_by: '',
 }
@@ -25,7 +26,7 @@ export default function AdminQuestsPage() {
   const [editingQuest, setEditingQuest] = useState<Quest | null>(null)
   const [form, setForm] = useState(DEFAULT_FORM)
   const [saving, setSaving] = useState(false)
-  const [categoryFilter, setCategoryFilter] = useState<'all' | QuestCategory>('all')
+  const [domainFilter, setDomainFilter] = useState<'all' | Domain>('all')
   const [staffFilter, setStaffFilter] = useState('all')
 
   function getToken() { return sessionStorage.getItem('spark_admin_token') ?? '' }
@@ -47,22 +48,41 @@ export default function AdminQuestsPage() {
     setForm({
       title: q.title,
       description: q.description ?? '',
-      category: q.category,
+      domain_tags: q.domain_tags ?? [],
       point_value: q.point_value,
       repeatable: q.repeatable,
+      is_grit_quest: q.is_grit_quest ?? false,
+      grit_powerup_description: q.grit_powerup_description ?? '',
+      grit_powerup_points: q.grit_powerup_points ?? '',
       expires_at: q.expires_at ? q.expires_at.slice(0, 10) : '',
       created_by: q.created_by ?? '',
     })
     setShowForm(true)
   }
 
+  function toggleDomain(domain: Domain) {
+    setForm(f => ({
+      ...f,
+      domain_tags: f.domain_tags.includes(domain)
+        ? f.domain_tags.filter(d => d !== domain)
+        : [...f.domain_tags, domain],
+    }))
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setSaving(true)
     const payload = {
-      ...form,
-      created_by: form.created_by.trim() || null,
+      title: form.title,
+      description: form.description || null,
+      domain_tags: form.domain_tags,
+      point_value: form.point_value,
+      repeatable: form.repeatable,
+      is_grit_quest: form.is_grit_quest,
+      grit_powerup_description: form.is_grit_quest ? (form.grit_powerup_description || null) : null,
+      grit_powerup_points: form.is_grit_quest && form.grit_powerup_points ? Number(form.grit_powerup_points) : null,
       expires_at: form.expires_at ? new Date(form.expires_at).toISOString() : null,
+      created_by: form.created_by.trim() || null,
       ...(editingQuest ? { id: editingQuest.id } : {}),
     }
     const res = await fetch('/api/admin/quests', {
@@ -92,7 +112,7 @@ export default function AdminQuestsPage() {
   const staffNames = Array.from(new Set(quests.map(q => q.created_by).filter(Boolean) as string[])).sort()
 
   const filtered = quests
-    .filter(q => categoryFilter === 'all' || q.category === categoryFilter)
+    .filter(q => domainFilter === 'all' || (q.domain_tags ?? []).includes(domainFilter))
     .filter(q => staffFilter === 'all' || q.created_by === staffFilter)
 
   return (
@@ -104,17 +124,21 @@ export default function AdminQuestsPage() {
           <Button size="sm" onClick={openNew}>+ New Quest</Button>
         </div>
 
-        {/* Category filter */}
+        {/* Domain filter */}
         <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-2">
-          <FilterChip active={categoryFilter === 'all'} onClick={() => setCategoryFilter('all')}>All</FilterChip>
-          {CATEGORIES.map(c => (
-            <FilterChip key={c} active={categoryFilter === c} onClick={() => setCategoryFilter(c)}>
-              {CATEGORY_LABELS[c]}
+          <FilterChip active={domainFilter === 'all'} onClick={() => setDomainFilter('all')}>All</FilterChip>
+          {ALL_DOMAINS.map(d => (
+            <FilterChip
+              key={d}
+              active={domainFilter === d}
+              onClick={() => setDomainFilter(d)}
+              color={DOMAIN_COLORS[d]}
+            >
+              {DOMAIN_EMOJIS[d]} {DOMAIN_LABELS[d]}
             </FilterChip>
           ))}
         </div>
 
-        {/* Staff filter — only appears if any quests have created_by */}
         {staffNames.length > 0 && (
           <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-4">
             <FilterChip active={staffFilter === 'all'} onClick={() => setStaffFilter('all')} small>All staff</FilterChip>
@@ -129,11 +153,18 @@ export default function AdminQuestsPage() {
         ) : (
           <div className="flex flex-col gap-2 mt-2">
             {filtered.map(q => (
-              <div key={q.id} className={`bg-[--color-surface] border rounded-2xl px-4 py-3 flex items-center gap-3 ${q.is_active ? 'border-[--color-border]' : 'border-[--color-border] opacity-50'}`}>
+              <div
+                key={q.id}
+                className={`bg-[--color-surface] border rounded-2xl px-4 py-3 flex items-center gap-3 ${q.is_active ? 'border-[--color-border]' : 'border-[--color-border] opacity-50'}`}
+              >
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-[--color-text] truncate">{q.title}</p>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="font-semibold text-[--color-text] truncate">{q.title}</p>
+                    {q.is_grit_quest && <span className="text-xs">🔥</span>}
+                  </div>
                   <p className="text-xs text-[--color-muted]">
-                    {CATEGORY_LABELS[q.category]} · {q.point_value} pts
+                    {(q.domain_tags ?? []).map(d => `${DOMAIN_EMOJIS[d]} ${DOMAIN_LABELS[d]}`).join(' · ') || 'No domain'}
+                    {' · '}{q.point_value} pts
                     {q.repeatable ? ' · repeatable' : ''}
                     {q.created_by ? ` · ${q.created_by}` : ''}
                   </p>
@@ -159,26 +190,66 @@ export default function AdminQuestsPage() {
             <h2 className="text-xl font-bold text-[--color-text] mb-4">
               {editingQuest ? 'Edit Quest' : 'New Quest'}
             </h2>
-            <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <AInput label="Title" value={form.title} onChange={v => setForm(f => ({ ...f, title: v }))} required />
               <ATextarea label="Description (shown to kids when they tap the quest)" value={form.description} onChange={v => setForm(f => ({ ...f, description: v }))} />
+
+              {/* Domain tags multi-select */}
               <div>
-                <label className="text-xs text-[--color-muted] mb-1 block">Category</label>
-                <select
-                  value={form.category}
-                  onChange={e => setForm(f => ({ ...f, category: e.target.value as QuestCategory }))}
-                  className="w-full bg-[--color-bg] border border-[--color-border] rounded-xl px-3 py-2 text-[--color-text]"
-                >
-                  {CATEGORIES.map(c => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}
-                </select>
+                <label className="text-xs text-[--color-muted] mb-2 block">Domain Tags (select all that apply)</label>
+                <div className="flex gap-2 flex-wrap">
+                  {ALL_DOMAINS.map(domain => {
+                    const selected = form.domain_tags.includes(domain)
+                    return (
+                      <button
+                        key={domain}
+                        type="button"
+                        onClick={() => toggleDomain(domain)}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border-2 transition-colors"
+                        style={selected
+                          ? { background: DOMAIN_COLORS[domain], borderColor: DOMAIN_COLORS[domain], color: '#fff' }
+                          : { background: 'var(--color-bg)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }
+                        }
+                      >
+                        {DOMAIN_EMOJIS[domain]} {DOMAIN_LABELS[domain]}
+                        {selected && ' ✓'}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
+
               <AInput label="Points" type="number" value={String(form.point_value)} onChange={v => setForm(f => ({ ...f, point_value: Number(v) }))} required />
               <AInput label="Posted by (staff name)" value={form.created_by} onChange={v => setForm(f => ({ ...f, created_by: v }))} />
               <AInput label="Expires (optional)" type="date" value={form.expires_at} onChange={v => setForm(f => ({ ...f, expires_at: v }))} />
+
               <label className="flex items-center gap-2 text-sm text-[--color-text] cursor-pointer">
                 <input type="checkbox" checked={form.repeatable} onChange={e => setForm(f => ({ ...f, repeatable: e.target.checked }))} className="accent-[--color-accent]" />
                 Repeatable
               </label>
+
+              <label className="flex items-center gap-2 text-sm text-[--color-text] cursor-pointer">
+                <input type="checkbox" checked={form.is_grit_quest} onChange={e => setForm(f => ({ ...f, is_grit_quest: e.target.checked }))} className="accent-[--color-accent]" />
+                🔥 Grit Quest (show flame badge on card)
+              </label>
+
+              {form.is_grit_quest && (
+                <div className="bg-[--color-bg] border border-[--color-border] rounded-2xl p-4 flex flex-col gap-3">
+                  <p className="text-xs text-[--color-muted] font-semibold uppercase tracking-wide">Grit Power-Up</p>
+                  <ATextarea
+                    label="Power-Up description (shown after verification)"
+                    value={form.grit_powerup_description}
+                    onChange={v => setForm(f => ({ ...f, grit_powerup_description: v }))}
+                  />
+                  <AInput
+                    label="Bonus points for completing the Power-Up"
+                    type="number"
+                    value={String(form.grit_powerup_points)}
+                    onChange={v => setForm(f => ({ ...f, grit_powerup_points: v }))}
+                  />
+                </div>
+              )}
+
               <div className="flex gap-3 mt-2">
                 <Button type="button" variant="secondary" className="flex-1" onClick={() => setShowForm(false)}>Cancel</Button>
                 <Button type="submit" className="flex-1" loading={saving}>Save</Button>
@@ -191,20 +262,32 @@ export default function AdminQuestsPage() {
   )
 }
 
-function FilterChip({ active, onClick, children, small }: { active: boolean; onClick: () => void; children: React.ReactNode; small?: boolean }) {
+function FilterChip({
+  active, onClick, children, small, color,
+}: {
+  active: boolean; onClick: () => void; children: React.ReactNode; small?: boolean; color?: string
+}) {
   return (
     <button
       onClick={onClick}
-      className={`flex-shrink-0 rounded-full font-semibold transition-all duration-150 ${
+      className={`flex-shrink-0 rounded-full font-semibold transition-all duration-150 border-2 ${
         small ? 'px-3 py-1 text-xs' : 'px-4 py-2 text-sm'
-      } ${active ? 'bg-[--color-accent] text-white' : 'bg-[--color-surface] text-[--color-muted] border border-[--color-border]'}`}
+      }`}
+      style={active && color
+        ? { background: color, borderColor: color, color: '#fff' }
+        : active
+        ? { background: 'var(--color-accent)', borderColor: 'var(--color-accent)', color: '#fff' }
+        : { background: 'var(--color-surface)', borderColor: 'var(--color-border)', color: 'var(--color-muted)' }
+      }
     >
       {children}
     </button>
   )
 }
 
-function AInput({ label, value, onChange, type = 'text', required }: { label: string; value: string; onChange: (v: string) => void; type?: string; required?: boolean }) {
+function AInput({ label, value, onChange, type = 'text', required }: {
+  label: string; value: string; onChange: (v: string) => void; type?: string; required?: boolean
+}) {
   return (
     <div>
       <label className="text-xs text-[--color-muted] mb-1 block">{label}</label>

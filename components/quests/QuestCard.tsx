@@ -1,4 +1,4 @@
-import { Quest, CATEGORY_COLORS, CATEGORY_TEXT_COLORS, CATEGORY_LABELS } from '@/lib/types'
+import { Quest, DOMAIN_COLORS, DOMAIN_TEXT_COLORS, DOMAIN_LABELS, DOMAIN_EMOJIS, getDomainCardColor, getDomainCardTextColor } from '@/lib/types'
 
 interface QuestCardProps {
   quest: Quest
@@ -7,8 +7,8 @@ interface QuestCardProps {
 }
 
 export function QuestCard({ quest, onClick, style }: QuestCardProps) {
-  const bgColor = CATEGORY_COLORS[quest.category] || 'var(--color-surface)'
-  const textColor = CATEGORY_TEXT_COLORS[quest.category] || 'var(--color-text)'
+  const bgColor = getDomainCardColor(quest.domain_tags)
+  const textColor = getDomainCardTextColor(quest.domain_tags)
 
   return (
     <button
@@ -18,13 +18,25 @@ export function QuestCard({ quest, onClick, style }: QuestCardProps) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
+          {/* Domain tags + badges */}
           <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <span className="text-xs font-bold uppercase tracking-wide" style={{ color: textColor }}>
-              {CATEGORY_LABELS[quest.category]}
-            </span>
+            {quest.domain_tags.map(tag => (
+              <span
+                key={tag}
+                className="text-xs font-bold uppercase tracking-wide"
+                style={{ color: textColor }}
+              >
+                {DOMAIN_EMOJIS[tag]} {DOMAIN_LABELS[tag]}
+              </span>
+            ))}
             {quest.repeatable && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-black/15 font-medium" style={{ color: textColor }}>
                 ↻ Repeatable
+              </span>
+            )}
+            {quest.is_grit_quest && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-black/15 font-bold" style={{ color: textColor }}>
+                🔥 Grit
               </span>
             )}
             {quest.expires_at && (
@@ -33,6 +45,7 @@ export function QuestCard({ quest, onClick, style }: QuestCardProps) {
               </span>
             )}
           </div>
+
           <h3 className="font-bold text-lg leading-snug" style={{ color: textColor }}>
             {quest.title}
           </h3>
@@ -42,6 +55,8 @@ export function QuestCard({ quest, onClick, style }: QuestCardProps) {
             </p>
           )}
         </div>
+
+        {/* Points badge */}
         <div
           className="flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-2xl bg-black/15"
           style={{ color: textColor }}
@@ -49,6 +64,9 @@ export function QuestCard({ quest, onClick, style }: QuestCardProps) {
           <span className="text-lg font-black leading-none">⚡</span>
           <span className="text-xl font-black leading-none">{quest.point_value}</span>
           <span className="text-[10px] font-semibold">pts</span>
+          {quest.grit_powerup_points && (
+            <span className="text-[9px] font-bold opacity-70">+{quest.grit_powerup_points}</span>
+          )}
         </div>
       </div>
     </button>

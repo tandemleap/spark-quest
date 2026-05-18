@@ -31,7 +31,11 @@ export async function GET(request: NextRequest) {
           .eq('reward_id', adv.id)
           .eq('reward_type', 'adventure')
         const points_contributed = redemptions?.reduce((s, r) => s + r.points_spent, 0) ?? 0
-        const contributors = redemptions?.map(r => ({ kid_id: r.kid_id, name_handle: (r.kids as unknown as { name_handle: string } | null)?.name_handle ?? 'Unknown', points_spent: r.points_spent })) ?? []
+        const contributors = redemptions?.map(r => ({
+          kid_id: r.kid_id,
+          name_handle: (r.kids as unknown as { name_handle: string } | null)?.name_handle ?? 'Unknown',
+          points_spent: r.points_spent,
+        })) ?? []
         return { ...adv, points_contributed, contributors }
       })
     )
@@ -74,6 +78,13 @@ export async function PATCH(request: NextRequest) {
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
   const supabase = getServiceSupabase()
+
+  // When featuring a reward, clear the featured flag on all other rewards of both types
+  if (updates.is_featured === true) {
+    await supabase.from('drops').update({ is_featured: false }).neq('id', id)
+    await supabase.from('adventures').update({ is_featured: false }).neq('id', id)
+  }
+
   const { data, error } = await supabase
     .from(table)
     .update(updates)

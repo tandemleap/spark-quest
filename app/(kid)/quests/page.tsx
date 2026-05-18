@@ -6,23 +6,18 @@ import { QuestVerifyOverlay } from '@/components/quests/QuestVerifyOverlay'
 import { Sheet } from '@/components/ui/Sheet'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
-import { CATEGORY_LABELS } from '@/lib/types'
-import type { Quest, QuestCategory } from '@/lib/types'
+import { ALL_DOMAINS, DOMAIN_LABELS, DOMAIN_EMOJIS, DOMAIN_COLORS } from '@/lib/types'
+import type { Quest, Domain } from '@/lib/types'
 
-const CATEGORIES: Array<{ value: 'all' | QuestCategory; label: string }> = [
-  { value: 'all',       label: 'All' },
-  { value: 'physical',  label: 'Physical' },
-  { value: 'mental',    label: 'Mental' },
-  { value: 'emotional', label: 'Emotional' },
-  { value: 'social',    label: 'Social' },
-  { value: 'creative',  label: 'Creative' },
-  { value: 'challenge', label: 'Challenge' },
+const DOMAIN_FILTERS: Array<{ value: 'all' | Domain; label: string }> = [
+  { value: 'all', label: 'All' },
+  ...ALL_DOMAINS.map(d => ({ value: d as Domain, label: `${DOMAIN_EMOJIS[d]} ${DOMAIN_LABELS[d]}` })),
 ]
 
 export default function QuestsPage() {
   const [quests, setQuests] = useState<Quest[]>([])
   const [loading, setLoading] = useState(true)
-  const [categoryFilter, setCategoryFilter] = useState<'all' | QuestCategory>('all')
+  const [domainFilter, setDomainFilter] = useState<'all' | Domain>('all')
   const [staffFilter, setStaffFilter] = useState<string>('all')
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null)
   const [verifyQuest, setVerifyQuest] = useState<Quest | null>(null)
@@ -31,19 +26,15 @@ export default function QuestsPage() {
   useEffect(() => {
     fetch('/api/quests')
       .then(r => r.json())
-      .then(data => {
-        setQuests(data)
-        setLoading(false)
-      })
+      .then(data => { setQuests(data); setLoading(false) })
   }, [])
 
-  // Unique staff names from quests that have one
   const staffNames = Array.from(
     new Set(quests.map(q => q.created_by).filter(Boolean) as string[])
   ).sort()
 
   const filtered = quests
-    .filter(q => categoryFilter === 'all' || q.category === categoryFilter)
+    .filter(q => domainFilter === 'all' || q.domain_tags.includes(domainFilter as Domain))
     .filter(q => staffFilter === 'all' || q.created_by === staffFilter)
 
   return (
@@ -53,24 +44,29 @@ export default function QuestsPage() {
         <p className="text-[--color-muted] text-sm mt-1">Complete quests to earn points ⚡</p>
       </div>
 
-      {/* Category filter */}
+      {/* Domain filter */}
       <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-3 animate-slide-up" style={{ animationDelay: '0.05s', opacity: 0 }}>
-        {CATEGORIES.map(cat => (
+        {DOMAIN_FILTERS.map(f => (
           <button
-            key={cat.value}
-            onClick={() => setCategoryFilter(cat.value)}
-            className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-150 ${
-              categoryFilter === cat.value
-                ? 'bg-[--color-accent] text-white'
-                : 'bg-[--color-surface] text-[--color-muted] border border-[--color-border]'
+            key={f.value}
+            onClick={() => setDomainFilter(f.value)}
+            className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-150 border-2 ${
+              domainFilter === f.value
+                ? 'text-white border-transparent'
+                : 'bg-[--color-surface] text-[--color-muted] border-[--color-border]'
             }`}
+            style={domainFilter === f.value && f.value !== 'all'
+              ? { background: DOMAIN_COLORS[f.value as Domain], borderColor: DOMAIN_COLORS[f.value as Domain] }
+              : domainFilter === f.value
+              ? { background: 'var(--color-accent)', borderColor: 'var(--color-accent)' }
+              : {}}
           >
-            {cat.label}
+            {f.label}
           </button>
         ))}
       </div>
 
-      {/* Staff filter — only shows if quests have created_by */}
+      {/* Staff filter */}
       {staffNames.length > 0 && (
         <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-5">
           <button
@@ -131,13 +127,24 @@ export default function QuestsPage() {
       <Sheet open={!!selectedQuest} onClose={() => setSelectedQuest(null)} title={selectedQuest?.title}>
         {selectedQuest && (
           <div className="flex flex-col gap-5">
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-sm font-semibold text-[--color-muted] uppercase tracking-wide">
-                {CATEGORY_LABELS[selectedQuest.category]}
-              </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              {selectedQuest.domain_tags.map(tag => (
+                <span
+                  key={tag}
+                  className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full"
+                  style={{ background: DOMAIN_COLORS[tag] + '33', color: DOMAIN_COLORS[tag] }}
+                >
+                  {DOMAIN_EMOJIS[tag]} {DOMAIN_LABELS[tag]}
+                </span>
+              ))}
               <span className="flex items-center gap-1 text-[--color-accent-light] font-bold text-lg">
                 ⚡ {selectedQuest.point_value} pts
               </span>
+              {selectedQuest.is_grit_quest && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-orange-900/30 text-orange-400 font-semibold">
+                  🔥 Grit Quest
+                </span>
+              )}
               {selectedQuest.repeatable && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-[--color-surface] border border-[--color-border] text-[--color-muted]">
                   ↻ Repeatable
@@ -154,6 +161,13 @@ export default function QuestsPage() {
               <p className="text-[--color-text] text-base leading-relaxed">{selectedQuest.description}</p>
             ) : (
               <p className="text-[--color-muted] text-sm italic">No additional details for this quest.</p>
+            )}
+
+            {selectedQuest.is_grit_quest && selectedQuest.grit_powerup_description && (
+              <div className="bg-orange-900/15 border border-orange-700/30 rounded-2xl p-4">
+                <p className="text-orange-400 font-semibold text-xs uppercase tracking-wide mb-1">🔥 Grit Power-Up (+{selectedQuest.grit_powerup_points} pts)</p>
+                <p className="text-[--color-text] text-sm">{selectedQuest.grit_powerup_description}</p>
+              </div>
             )}
 
             {selectedQuest.expires_at && (
@@ -185,7 +199,7 @@ export default function QuestsPage() {
         <QuestVerifyOverlay
           quest={verifyQuest}
           onClose={() => setVerifyQuest(null)}
-          onSuccess={() => {
+          onSuccess={(pts) => {
             setCompletedIds(prev => new Set([...prev, verifyQuest.id]))
             setVerifyQuest(null)
           }}

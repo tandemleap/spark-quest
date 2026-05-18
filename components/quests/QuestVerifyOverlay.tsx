@@ -13,7 +13,7 @@ interface QuestVerifyOverlayProps {
   onSuccess: (pointsAwarded: number) => void
 }
 
-type OverlayState = 'pin' | 'initials' | 'success' | 'already_done'
+type OverlayState = 'pin' | 'initials' | 'powerup' | 'success' | 'already_done'
 
 export function QuestVerifyOverlay({ quest, onClose, onSuccess }: QuestVerifyOverlayProps) {
   const [state, setState] = useState<OverlayState>('pin')
@@ -21,44 +21,30 @@ export function QuestVerifyOverlay({ quest, onClose, onSuccess }: QuestVerifyOve
   const [verifiedPin, setVerifiedPin] = useState('')
   const [initials, setInitials] = useState('')
   const [verifying, setVerifying] = useState(false)
+  const [totalPointsAwarded, setTotalPointsAwarded] = useState(0)
 
   async function handlePin(enteredPin: string) {
     setPinStatus('checking')
-
     const kidId = localStorage.getItem('spark_kid_id')
-
     const res = await fetch('/api/quests/verify-pin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ passcode: enteredPin, kid_id: kidId, quest_id: quest.id }),
     })
-
     if (res.status === 401) {
       setPinStatus('error')
       setTimeout(() => setPinStatus('idle'), 900)
       return
     }
-
-    if (res.status === 409) {
-      setState('already_done')
-      return
-    }
-
-    // PIN valid
+    if (res.status === 409) { setState('already_done'); return }
     setPinStatus('success')
     setVerifiedPin(enteredPin)
-    setTimeout(() => {
-      setState('initials')
-      setPinStatus('idle')
-    }, 500)
+    setTimeout(() => { setState('initials'); setPinStatus('idle') }, 500)
   }
 
-  async function handleInitialsSubmit() {
-    if (!initials.trim()) return
+  async function submitQuest(powerupClaimed: boolean) {
     setVerifying(true)
-
     const kidId = localStorage.getItem('spark_kid_id')
-
     const res = await fetch('/api/quests/complete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -67,42 +53,48 @@ export function QuestVerifyOverlay({ quest, onClose, onSuccess }: QuestVerifyOve
         quest_id: quest.id,
         passcode: verifiedPin,
         staff_initials: initials.trim().toUpperCase(),
+        powerup_claimed: powerupClaimed,
       }),
     })
-
     setVerifying(false)
-
-    if (res.status === 409) {
-      setState('already_done')
-      return
-    }
-
+    if (res.status === 409) { setState('already_done'); return }
     if (!res.ok) {
-      // Re-show pin on unexpected failure
       setPinStatus('error')
       setState('pin')
       setTimeout(() => setPinStatus('idle'), 900)
       return
     }
-
     const { points_awarded } = await res.json()
+    setTotalPointsAwarded(points_awarded)
     setState('success')
     fireConfetti()
     showPointsToast(points_awarded)
     onSuccess(points_awarded)
   }
 
+  function handleInitialsNext() {
+    if (!initials.trim()) return
+    if (quest.is_grit_quest && quest.grit_powerup_description) {
+      setState('powerup')
+    } else {
+      submitQuest(false)
+    }
+  }
+
+  const heading = {
+    pin: 'Staff Verification',
+    initials: 'Staff Initials',
+    powerup: 'Bonus Challenge 🔥',
+    success: 'Quest Complete! 🎉',
+    already_done: 'Already Done',
+  }[state]
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/80 backdrop-blur-sm animate-fade-in">
       <div className="max-w-[430px] mx-auto w-full bg-[--color-bg] rounded-t-3xl px-6 pt-6 pb-10 animate-slide-up">
 
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-bold text-[--color-text]">
-            {state === 'pin' && 'Staff Verification'}
-            {state === 'initials' && 'Staff Initials'}
-            {state === 'success' && 'Quest Complete! 🎉'}
-            {state === 'already_done' && 'Already Done'}
-          </h2>
+          <h2 className="text-lg font-bold text-[--color-text]">{heading}</h2>
           <button onClick={onClose} className="text-[--color-muted] hover:text-[--color-text] text-2xl leading-none w-8 h-8 flex items-center justify-center">
             ×
           </button>
@@ -139,10 +131,35 @@ export function QuestVerifyOverlay({ quest, onClose, onSuccess }: QuestVerifyOve
               size="lg"
               loading={verifying}
               disabled={initials.trim().length < 1}
-              onClick={handleInitialsSubmit}
+              onClick={handleInitialsNext}
             >
-              Confirm & Award Points
+              {quest.is_grit_quest && quest.grit_powerup_description ? 'Next →' : 'Confirm & Award Points'}
             </Button>
+          </div>
+        )}
+
+        {state === 'powerup' && quest.grit_powerup_description && (
+          <div className="flex flex-col gap-5">
+            <div className="bg-[--color-surface] rounded-2xl p-4 border border-[--color-border]">
+              <p className="text-[--color-muted] text-xs font-semibold uppercase tracking-wide mb-2">Grit Power-Up</p>
+              <p className="text-[--color-text] text-base leading-snug">{quest.grit_powerup_description}</p>
+              {quest.grit_powerup_points && (
+                <p className="text-[--color-accent-light] font-bold text-sm mt-2">
+                  Bonus: +{quest.grit_powerup_points} pts
+                </p>
+              )}
+            </div>
+            <p className="text-[--color-muted] text-sm text-center">
+              Did this kid also do the above?
+            </p>
+            <div className="flex flex-col gap-2">
+              <Button size="lg" loading={verifying} onClick={() => submitQuest(true)}>
+                🔥 Yes, I did this too! (+{quest.grit_powerup_points} pts)
+              </Button>
+              <Button size="lg" variant="secondary" loading={verifying} onClick={() => submitQuest(false)}>
+                Not this time — just the quest
+              </Button>
+            </div>
           </div>
         )}
 
@@ -150,7 +167,7 @@ export function QuestVerifyOverlay({ quest, onClose, onSuccess }: QuestVerifyOve
           <div className="flex flex-col items-center gap-4 py-4">
             <div className="text-6xl animate-pop-in">⚡</div>
             <div className="text-center">
-              <p className="text-4xl font-black text-[--color-accent-light]">+{quest.point_value} pts</p>
+              <p className="text-4xl font-black text-[--color-accent-light]">+{totalPointsAwarded} pts</p>
               <p className="text-[--color-muted] mt-1">Quest complete! Keep it up.</p>
             </div>
             <Button size="lg" onClick={onClose} className="mt-2 w-full">Back to Quests</Button>

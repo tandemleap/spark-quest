@@ -1,30 +1,47 @@
-export type QuestCategory = 'physical' | 'mental' | 'emotional' | 'social' | 'creative' | 'challenge'
+export type Domain = 'body' | 'brain' | 'heart' | 'hands' | 'team'
 
-export const CATEGORY_COLORS: Record<QuestCategory, string> = {
-  physical:  '#C97D20',
-  mental:    '#4A7C59',
-  emotional: '#9B7FA6',
-  social:    '#4A7A9B',
-  creative:  '#C2714F',
-  challenge: '#B04A4A',
+export const ALL_DOMAINS: Domain[] = ['body', 'brain', 'heart', 'hands', 'team']
+
+export const DOMAIN_COLORS: Record<Domain, string> = {
+  body:  '#C2714F',
+  brain: '#C97D20',
+  heart: '#9B7FA6',
+  hands: '#4A7C59',
+  team:  '#7C3AED',
 }
 
-export const CATEGORY_TEXT_COLORS: Record<QuestCategory, string> = {
-  physical:  '#3D2800',
-  mental:    '#0F2218',
-  emotional: '#1E1028',
-  social:    '#0D1E28',
-  creative:  '#3D1F10',
-  challenge: '#280F0F',
+export const DOMAIN_TEXT_COLORS: Record<Domain, string> = {
+  body:  '#3D1F10',
+  brain: '#3D2800',
+  heart: '#1E1028',
+  hands: '#0F2218',
+  team:  '#1A0040',
 }
 
-export const CATEGORY_LABELS: Record<QuestCategory, string> = {
-  physical:  'Physical',
-  mental:    'Mental',
-  emotional: 'Emotional',
-  social:    'Social',
-  creative:  'Creative',
-  challenge: 'Challenge',
+export const DOMAIN_LABELS: Record<Domain, string> = {
+  body:  'Body',
+  brain: 'Brain',
+  heart: 'Heart',
+  hands: 'Hands',
+  team:  'Team',
+}
+
+export const DOMAIN_EMOJIS: Record<Domain, string> = {
+  body:  '💪',
+  brain: '🧠',
+  heart: '❤️',
+  hands: '🙌',
+  team:  '🤝',
+}
+
+export type DomainRequirements = Partial<Record<Domain, number>>
+
+export function getDomainCardColor(tags: Domain[]): string {
+  return tags.length > 0 ? DOMAIN_COLORS[tags[0]] : 'var(--color-surface)'
+}
+
+export function getDomainCardTextColor(tags: Domain[]): string {
+  return tags.length > 0 ? DOMAIN_TEXT_COLORS[tags[0]] : 'var(--color-text)'
 }
 
 export interface Kid {
@@ -34,17 +51,25 @@ export interface Kid {
   available_points: number
   avatar_url: string | null
   created_at: string
+  body_points: number
+  brain_points: number
+  heart_points: number
+  hands_points: number
+  team_points: number
 }
 
 export interface Quest {
   id: string
   title: string
   description: string | null
-  category: QuestCategory
+  domain_tags: Domain[]
   point_value: number
   repeatable: boolean
   expires_at: string | null
   is_active: boolean
+  is_grit_quest: boolean
+  grit_powerup_description: string | null
+  grit_powerup_points: number | null
   created_by: string | null
   created_at: string
 }
@@ -56,6 +81,7 @@ export interface QuestCompletion {
   completed_at: string
   verified_by_initials: string | null
   points_awarded: number
+  powerup_claimed: boolean
 }
 
 export interface Drop {
@@ -65,6 +91,8 @@ export interface Drop {
   point_cost: number
   quantity_available: number | null
   is_active: boolean
+  is_featured: boolean
+  domain_requirements: DomainRequirements
   created_at: string
 }
 
@@ -77,6 +105,8 @@ export interface Adventure {
   stays_open_after_unlock: boolean
   is_active: boolean
   is_unlocked: boolean
+  is_featured: boolean
+  domain_requirements: DomainRequirements
   unlocked_at: string | null
   created_at: string
   points_contributed?: number
@@ -90,4 +120,28 @@ export interface Redemption {
   reward_id: string
   points_spent: number
   redeemed_at: string
+}
+
+export type FeaturedReward =
+  | ({ type: 'adventure' } & Adventure & { points_contributed: number; contributors_count: number })
+  | ({ type: 'drop' } & Drop)
+
+export function kidDomainPoints(kid: Kid): Record<Domain, number> {
+  return {
+    body:  kid.body_points,
+    brain: kid.brain_points,
+    heart: kid.heart_points,
+    hands: kid.hands_points,
+    team:  kid.team_points,
+  }
+}
+
+export function checkDomainEligibility(
+  kidPoints: Record<Domain, number>,
+  requirements: DomainRequirements
+): { eligible: boolean; unmet: { domain: Domain; needed: number; current: number }[] } {
+  const unmet = (Object.entries(requirements) as [Domain, number][])
+    .filter(([domain, needed]) => needed > 0 && (kidPoints[domain] ?? 0) < needed)
+    .map(([domain, needed]) => ({ domain, needed, current: kidPoints[domain] ?? 0 }))
+  return { eligible: unmet.length === 0, unmet }
 }
