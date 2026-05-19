@@ -186,7 +186,7 @@ export default function AdminQuestsPage() {
 
       {showForm && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center px-4">
-          <div className="bg-[--color-surface] rounded-3xl p-6 w-full max-w-md max-h-[90svh] overflow-y-auto">
+          <div className="rounded-3xl p-6 w-full max-w-md max-h-[90svh] overflow-y-auto" style={{ background: 'var(--color-surface)' }}>
             <h2 className="text-xl font-bold text-[--color-text] mb-4">
               {editingQuest ? 'Edit Quest' : 'New Quest'}
             </h2>
