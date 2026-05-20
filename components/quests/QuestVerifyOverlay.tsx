@@ -1,11 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { PinEntry } from '@/components/ui/PinEntry'
 import { Button } from '@/components/ui/Button'
 import { fireConfetti } from '@/components/ui/ConfettiLayer'
 import { showPointsToast } from '@/components/ui/PointsToast'
 import type { Quest } from '@/lib/types'
+
+// Delay in ms between API success and celebration firing —
+// gives staff time to hand the phone back to the kid.
+const HANDOFF_DELAY = 2800
 
 interface QuestVerifyOverlayProps {
   quest: Quest
@@ -13,7 +17,15 @@ interface QuestVerifyOverlayProps {
   onSuccess: (pointsAwarded: number) => void
 }
 
-type OverlayState = 'pin' | 'initials' | 'powerup' | 'success' | 'already_done'
+type OverlayState = 'pin' | 'initials' | 'powerup' | 'handoff' | 'success' | 'already_done'
+
+function playSound(path: string) {
+  try {
+    const audio = new Audio(path)
+    audio.volume = 0.85
+    audio.play().catch(() => {}) // ignore autoplay policy errors
+  } catch {}
+}
 
 export function QuestVerifyOverlay({ quest, onClose, onSuccess }: QuestVerifyOverlayProps) {
   const [state, setState] = useState<OverlayState>('pin')
@@ -22,6 +34,22 @@ export function QuestVerifyOverlay({ quest, onClose, onSuccess }: QuestVerifyOve
   const [initials, setInitials] = useState('')
   const [verifying, setVerifying] = useState(false)
   const [totalPointsAwarded, setTotalPointsAwarded] = useState(0)
+  const [powerupClaimed, setPowerupClaimed] = useState(false)
+  const [countdown, setCountdown] = useState(3)
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Countdown tick during handoff state
+  useEffect(() => {
+    if (state !== 'handoff') return
+    setCountdown(3)
+    let n = 3
+    countdownRef.current = setInterval(() => {
+      n -= 1
+      setCountdown(n)
+      if (n <= 0) clearInterval(countdownRef.current!)
+    }, 1000)
+    return () => clearInterval(countdownRef.current!)
+  }, [state])
 
   async function handlePin(enteredPin: string) {
     setPinStatus('checking')
@@ -42,8 +70,9 @@ export function QuestVerifyOverlay({ quest, onClose, onSuccess }: QuestVerifyOve
     setTimeout(() => { setState('initials'); setPinStatus('idle') }, 500)
   }
 
-  async function submitQuest(powerupClaimed: boolean) {
+  async function submitQuest(claimed: boolean) {
     setVerifying(true)
+    setPowerupClaimed(claimed)
     const kidId = localStorage.getItem('spark_kid_id')
     const res = await fetch('/api/quests/complete', {
       method: 'POST',
@@ -53,7 +82,7 @@ export function QuestVerifyOverlay({ quest, onClose, onSuccess }: QuestVerifyOve
         quest_id: quest.id,
         passcode: verifiedPin,
         staff_initials: initials.trim().toUpperCase(),
-        powerup_claimed: powerupClaimed,
+        powerup_claimed: claimed,
       }),
     })
     setVerifying(false)
@@ -66,10 +95,20 @@ export function QuestVerifyOverlay({ quest, onClose, onSuccess }: QuestVerifyOve
     }
     const { points_awarded } = await res.json()
     setTotalPointsAwarded(points_awarded)
-    setState('success')
-    fireConfetti()
-    showPointsToast(points_awarded)
-    onSuccess(points_awarded)
+
+    // Show handoff screen — celebration fires after HANDOFF_DELAY
+    setState('handoff')
+    setTimeout(() => {
+      setState('success')
+      fireConfetti()
+      showPointsToast(points_awarded)
+      // Pick sound: powerup earns the big victory, base quest gets great-success
+      playSound(claimed
+        ? '/sounds/victory.mp3'
+        : '/sounds/great-success.mp3'
+      )
+      onSuccess(points_awarded)
+    }, HANDOFF_DELAY)
   }
 
   function handleInitialsNext() {
@@ -81,23 +120,26 @@ export function QuestVerifyOverlay({ quest, onClose, onSuccess }: QuestVerifyOve
     }
   }
 
-  const heading = {
-    pin: 'Staff Verification',
-    initials: 'Staff Initials',
-    powerup: 'Bonus Challenge 🔥',
-    success: 'Quest Complete! 🎉',
-    already_done: 'Already Done',
-  }[state]
+  const heading: Record<OverlayState, string> = {
+    pin:         'Staff Verification',
+    initials:    'Staff Initials',
+    powerup:     'Bonus Challenge 🔥',
+    handoff:     'Verified! ✓',
+    success:     'Quest Complete! 🎉',
+    already_done:'Already Done',
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/80 backdrop-blur-sm animate-fade-in">
       <div className="max-w-[430px] mx-auto w-full bg-[--color-bg] rounded-t-3xl px-6 pt-6 pb-10 animate-slide-up">
 
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-bold text-[--color-text]">{heading}</h2>
-          <button onClick={onClose} className="text-[--color-muted] hover:text-[--color-text] text-2xl leading-none w-8 h-8 flex items-center justify-center">
-            ×
-          </button>
+          <h2 className="text-lg font-bold text-[--color-text]">{heading[state]}</h2>
+          {state !== 'handoff' && state !== 'success' && (
+            <button onClick={onClose} className="text-[--color-muted] hover:text-[--color-text] text-2xl leading-none w-8 h-8 flex items-center justify-center">
+              ×
+            </button>
+          )}
         </div>
 
         {state === 'pin' && (
@@ -140,7 +182,7 @@ export function QuestVerifyOverlay({ quest, onClose, onSuccess }: QuestVerifyOve
 
         {state === 'powerup' && quest.grit_powerup_description && (
           <div className="flex flex-col gap-5">
-            <div className="bg-[--color-surface] rounded-2xl p-4 border border-[--color-border]">
+            <div className="rounded-2xl p-4 border border-[--color-border]" style={{ background: 'var(--color-surface)' }}>
               <p className="text-[--color-muted] text-xs font-semibold uppercase tracking-wide mb-2">Grit Power-Up</p>
               <p className="text-[--color-text] text-base leading-snug">{quest.grit_powerup_description}</p>
               {quest.grit_powerup_points && (
@@ -149,9 +191,7 @@ export function QuestVerifyOverlay({ quest, onClose, onSuccess }: QuestVerifyOve
                 </p>
               )}
             </div>
-            <p className="text-[--color-muted] text-sm text-center">
-              Did this kid also do the above?
-            </p>
+            <p className="text-[--color-muted] text-sm text-center">Did this kid also do the above?</p>
             <div className="flex flex-col gap-2">
               <Button size="lg" loading={verifying} onClick={() => submitQuest(true)}>
                 🔥 Yes, I did this too! (+{quest.grit_powerup_points} pts)
@@ -163,12 +203,27 @@ export function QuestVerifyOverlay({ quest, onClose, onSuccess }: QuestVerifyOve
           </div>
         )}
 
+        {state === 'handoff' && (
+          <div className="flex flex-col items-center gap-5 py-4">
+            <div className="text-7xl animate-pop-in">✅</div>
+            <div className="text-center">
+              <p className="text-2xl font-black text-green-400">Quest approved!</p>
+              <p className="text-[--color-muted] text-base mt-2">Hand the phone back to the kid.</p>
+            </div>
+            <div className="w-16 h-16 rounded-full border-4 border-[--color-accent] flex items-center justify-center">
+              <span className="text-3xl font-black text-[--color-accent-light]">{countdown}</span>
+            </div>
+          </div>
+        )}
+
         {state === 'success' && (
           <div className="flex flex-col items-center gap-4 py-4">
             <div className="text-6xl animate-pop-in">⚡</div>
             <div className="text-center">
               <p className="text-4xl font-black text-[--color-accent-light]">+{totalPointsAwarded} pts</p>
-              <p className="text-[--color-muted] mt-1">Quest complete! Keep it up.</p>
+              <p className="text-[--color-muted] mt-1">
+                {powerupClaimed ? 'Quest + Power-Up complete! 🔥' : 'Quest complete! Keep it up.'}
+              </p>
             </div>
             <Button size="lg" onClick={onClose} className="mt-2 w-full">Back to Quests</Button>
           </div>
