@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { Avatar } from '@/components/ui/Avatar'
-import { PointsBadge } from '@/components/ui/PointsBadge'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { supabase } from '@/lib/supabase'
 import type { Kid } from '@/lib/types'
@@ -17,7 +16,6 @@ export default function LeaderboardPage() {
   useEffect(() => {
     setMyKidId(localStorage.getItem('spark_kid_id'))
 
-    // Initial fetch
     fetch('/api/leaderboard')
       .then(r => r.json())
       .then(data => {
@@ -25,7 +23,6 @@ export default function LeaderboardPage() {
         setLoading(false)
       })
 
-    // Realtime subscription
     const channel = supabase
       .channel('leaderboard-updates')
       .on(
@@ -55,51 +52,79 @@ export default function LeaderboardPage() {
   }
 
   return (
-    <div className="px-4 pt-8 pb-4">
+    <div className="px-4 pt-6 pb-4">
       {/* Header */}
       <div className="animate-slide-down mb-6">
-        <h1 className="text-3xl font-bold text-[--color-text]">Leaderboard</h1>
-        <p className="text-[--color-muted] text-sm mt-1">Ranked by total points earned ⚡</p>
+        <p className="font-barlow font-black text-[10px] uppercase tracking-[0.2em] text-[--color-muted] mb-0.5">
+          SPARK Quest
+        </p>
+        <h1
+          className="font-barlow font-black text-4xl uppercase text-[--color-text]"
+          style={{ letterSpacing: '-0.02em' }}
+        >
+          Leaderboard
+        </h1>
+        <p className="text-[--color-muted] text-sm mt-1">Ranked by total XP ⚡</p>
       </div>
 
       {/* List */}
       <div className="flex flex-col gap-2">
         {kids.map((k, i) => {
           const isMe = k.id === myKidId
+          const isTop3 = i < 3
           return (
             <div
               key={k.id}
               className={`flex items-center gap-3 rounded-2xl px-4 py-3 transition-all duration-200 animate-slide-up ${
-                isMe
-                  ? 'bg-[--color-accent]/20 border border-[--color-accent]/40'
-                  : 'bg-[--color-surface] border border-[--color-border]'
+                isMe ? 'border' : 'border border-[--color-border]'
               }`}
-              style={{ animationDelay: `${i * 0.03}s`, opacity: 0 }}
+              style={{
+                background: isMe ? '#7C3AED22' : 'var(--color-surface)',
+                borderColor: isMe ? '#7C3AED55' : undefined,
+                animationDelay: `${i * 0.03}s`,
+                opacity: 0,
+              }}
             >
               {/* Rank */}
-              <div className="w-8 text-center text-lg flex-shrink-0">
-                {i < 3 ? MEDALS[i] : <span className="text-[--color-muted] text-sm font-bold">#{i + 1}</span>}
+              <div className="w-10 text-center flex-shrink-0">
+                {isTop3 ? (
+                  <span className="text-xl">{MEDALS[i]}</span>
+                ) : (
+                  <span
+                    className="font-barlow font-black text-lg text-[--color-muted]"
+                  >
+                    {i + 1}
+                  </span>
+                )}
               </div>
 
               <Avatar avatarUrl={k.avatar_url} handle={k.name_handle} size="md" />
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className={`font-bold truncate ${isMe ? 'text-[--color-accent-light]' : 'text-[--color-text]'}`}>
+                  <span
+                    className="font-barlow font-black text-base uppercase truncate"
+                    style={{ color: isMe ? 'var(--color-accent-light)' : 'var(--color-text)' }}
+                  >
                     {k.name_handle}
                   </span>
-                  {isMe && <span className="text-xs text-[--color-accent-light] font-medium">(you)</span>}
+                  {isMe && <span className="text-[10px] text-[--color-accent-light] font-bold uppercase tracking-wide">(you)</span>}
                 </div>
-                <p className="text-xs text-[--color-muted]">{k.available_points} pts to spend</p>
+                <p className="text-xs text-[--color-muted]">{k.available_points} pts available</p>
               </div>
 
-              <PointsBadge points={k.total_points_earned} type="earned" size="sm" />
+              <div className="flex-shrink-0 text-right">
+                <span className="font-barlow font-black text-2xl text-[--color-accent-light]">
+                  {k.total_points_earned}
+                </span>
+                <span className="block text-[10px] font-bold uppercase tracking-widest text-[--color-muted] -mt-0.5">xp</span>
+              </div>
             </div>
           )
         })}
 
         {kids.length === 0 && (
-          <p className="text-center text-[--color-muted] pt-12">No one on the board yet — be the first!</p>
+          <p className="text-center text-[--color-muted] pt-12">No one on the board yet — be first.</p>
         )}
       </div>
     </div>

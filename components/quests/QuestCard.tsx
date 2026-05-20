@@ -1,4 +1,4 @@
-import { Quest, DOMAIN_COLORS, DOMAIN_TEXT_COLORS, DOMAIN_LABELS, DOMAIN_EMOJIS, getDomainCardColor, getDomainCardTextColor } from '@/lib/types'
+import { Quest, DOMAIN_COLORS, DOMAIN_LABELS, DOMAIN_EMOJIS, getDomainCardColor } from '@/lib/types'
 
 interface QuestCardProps {
   quest: Quest
@@ -8,49 +8,56 @@ interface QuestCardProps {
 
 export function QuestCard({ quest, onClick, style }: QuestCardProps) {
   const bgColor = getDomainCardColor(quest.domain_tags)
-  const textColor = getDomainCardTextColor(quest.domain_tags)
+  const accentColor = quest.domain_tags.length > 0 ? DOMAIN_COLORS[quest.domain_tags[0]] : 'var(--color-accent)'
 
   return (
     <button
       onClick={onClick}
-      className="card-grain w-full rounded-3xl p-5 text-left active:scale-[0.97] transition-transform duration-100"
-      style={{ background: bgColor, ...style }}
+      className="card-grain w-full rounded-2xl p-5 text-left active:scale-[0.97] transition-transform duration-100 overflow-hidden"
+      style={{
+        background: bgColor,
+        borderLeft: `4px solid ${accentColor}`,
+        ...style,
+      }}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          {/* Domain tags + badges */}
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
+          {/* Domain tags row */}
+          <div className="flex items-center gap-2 mb-2.5 flex-wrap">
             {quest.domain_tags.map(tag => (
               <span
                 key={tag}
-                className="text-xs font-bold uppercase tracking-wide"
-                style={{ color: textColor }}
+                className="text-[10px] font-bold uppercase tracking-widest"
+                style={{ color: DOMAIN_COLORS[tag] }}
               >
                 {DOMAIN_EMOJIS[tag]} {DOMAIN_LABELS[tag]}
               </span>
             ))}
-            {quest.repeatable && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-black/15 font-medium" style={{ color: textColor }}>
-                ↻ Repeatable
-              </span>
-            )}
             {quest.is_grit_quest && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-black/15 font-bold" style={{ color: textColor }}>
+              <span
+                className="text-[10px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-sm"
+                style={{ background: '#FF3322', color: '#fff' }}
+              >
                 🔥 Grit
               </span>
             )}
+            {quest.repeatable && (
+              <span className="text-[10px] font-semibold text-white/35 uppercase tracking-wide">↻ repeat</span>
+            )}
             {quest.expires_at && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-black/15 font-medium" style={{ color: textColor }}>
-                ⏰ Limited
-              </span>
+              <span className="text-[10px] font-semibold text-white/35 uppercase tracking-wide">⏰ limited</span>
             )}
           </div>
 
-          <h3 className="font-bold text-lg leading-snug" style={{ color: textColor }}>
+          {/* Title — condensed bold */}
+          <h3
+            className="font-barlow font-black text-xl leading-tight text-white uppercase"
+            style={{ letterSpacing: '-0.01em' }}
+          >
             {quest.title}
           </h3>
           {quest.description && (
-            <p className="mt-1 text-sm opacity-75 line-clamp-2" style={{ color: textColor }}>
+            <p className="mt-1.5 text-sm text-white/55 line-clamp-2 leading-snug">
               {quest.description}
             </p>
           )}
@@ -58,14 +65,26 @@ export function QuestCard({ quest, onClick, style }: QuestCardProps) {
 
         {/* Points badge */}
         <div
-          className="flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-2xl bg-black/15"
-          style={{ color: textColor }}
+          className="flex-shrink-0 flex flex-col items-center justify-center w-[52px] h-[52px] rounded-xl"
+          style={{
+            background: accentColor + '22',
+            border: `1.5px solid ${accentColor}55`,
+          }}
         >
-          <span className="text-lg font-black leading-none">⚡</span>
-          <span className="text-xl font-black leading-none">{quest.point_value}</span>
-          <span className="text-[10px] font-semibold">pts</span>
+          <span
+            className="text-[9px] font-bold uppercase tracking-widest leading-none mb-0.5"
+            style={{ color: accentColor }}
+          >pts</span>
+          <span
+            className="font-barlow font-black text-2xl leading-none"
+            style={{ color: accentColor }}
+          >
+            {quest.point_value}
+          </span>
           {quest.grit_powerup_points && (
-            <span className="text-[9px] font-bold opacity-70">+{quest.grit_powerup_points}</span>
+            <span className="text-[8px] font-bold leading-none mt-0.5 text-white/40">
+              +{quest.grit_powerup_points}
+            </span>
           )}
         </div>
       </div>

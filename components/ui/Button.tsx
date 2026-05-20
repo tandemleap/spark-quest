@@ -19,19 +19,19 @@ export function Button({
   ...props
 }: ButtonProps) {
   const base =
-    'inline-flex items-center justify-center font-semibold rounded-2xl transition-all duration-150 active:scale-95 select-none'
+    'inline-flex items-center justify-center font-bold uppercase tracking-wider rounded-xl transition-all duration-150 active:scale-95 select-none'
 
   const variants = {
     primary: 'bg-[--color-accent] text-white hover:bg-[--color-accent-dark] disabled:opacity-40',
-    secondary: 'bg-[--color-surface] text-[--color-text] border border-[--color-border] hover:bg-[#252525] disabled:opacity-40',
+    secondary: 'bg-[--color-surface] text-[--color-text] border border-[--color-border] hover:bg-[#202020] disabled:opacity-40',
     ghost: 'bg-transparent text-[--color-accent-light] hover:bg-white/5 disabled:opacity-40',
     danger: 'bg-red-600 text-white hover:bg-red-700 disabled:opacity-40',
   }
 
   const sizes = {
-    sm: 'px-4 py-2 text-sm',
-    md: 'px-6 py-3 text-base',
-    lg: 'px-8 py-4 text-lg w-full',
+    sm: 'px-4 py-2 text-xs',
+    md: 'px-6 py-3 text-sm',
+    lg: 'px-8 py-4 text-base w-full',
   }
 
   return (

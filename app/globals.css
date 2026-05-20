@@ -6,29 +6,22 @@
 @theme inline {
   /* Core palette */
   --color-bg: #0D0D0D;
-  --color-surface: #1A1A1A;
-  --color-border: #2A2A2A;
+  --color-surface: #141414;
+  --color-border: #303030;
   --color-accent: #7C3AED;
   --color-accent-light: #A78BFA;
   --color-accent-dark: #5B21B6;
   --color-text: #F5F5F5;
-  --color-muted: #888888;
-
-  /* Quest category card colors */
-  --color-physical:  #C97D20;
-  --color-mental:    #4A7C59;
-  --color-emotional: #9B7FA6;
-  --color-social:    #4A7A9B;
-  --color-creative:  #C2714F;
-  --color-challenge: #B04A4A;
+  --color-muted: #777777;
+  --color-grit: #FF3322;
 
   /* Typography */
   --font-display: "Space Grotesk", system-ui, sans-serif;
   --font-body: system-ui, sans-serif;
 
   /* Border radius */
-  --radius-card: 1.5rem;
-  --radius-sm: 0.75rem;
+  --radius-card: 1.25rem;
+  --radius-sm: 0.625rem;
 }
 
 * {
@@ -46,6 +39,11 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
+}
+
+/* Condensed display font utility */
+.font-barlow {
+  font-family: var(--font-barlow), "Space Grotesk", system-ui, sans-serif;
 }
 
 /* Max-width mobile shell */
@@ -68,7 +66,7 @@ body {
   inset: 0;
   border-radius: inherit;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
-  opacity: 0.04;
+  opacity: 0.05;
   pointer-events: none;
   mix-blend-mode: overlay;
 }
@@ -107,6 +105,12 @@ body {
   100% { transform: scale(1); opacity: 1; }
 }
 
+@keyframes score-pop {
+  0% { transform: scale(0.7) rotate(-3deg); opacity: 0; }
+  50% { transform: scale(1.15) rotate(1deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
 @keyframes float-up-fade {
   0% { transform: translateY(0); opacity: 1; }
   100% { transform: translateY(-60px); opacity: 0; }
@@ -126,6 +130,11 @@ body {
   100% { transform: scale(1); }
 }
 
+@keyframes nav-indicator {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
 @utility animate-slide-up {
   animation: slide-up 0.35s ease-out forwards;
 }
@@ -140,6 +149,10 @@ body {
 
 @utility animate-pop-in {
   animation: pop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@utility animate-score-pop {
+  animation: score-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 @utility animate-float-up-fade {

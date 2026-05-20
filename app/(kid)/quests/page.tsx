@@ -40,8 +40,16 @@ export default function QuestsPage() {
   return (
     <div className="px-4 pt-8 pb-4">
       <div className="animate-slide-down mb-5">
-        <h1 className="text-3xl font-bold text-[--color-text]">Quests</h1>
-        <p className="text-[--color-muted] text-sm mt-1">Complete quests to earn points ⚡</p>
+        <p className="font-barlow font-black text-[10px] uppercase tracking-[0.2em] text-[--color-muted] mb-0.5">
+          SPARK Quest
+        </p>
+        <h1
+          className="font-barlow font-black text-4xl uppercase text-[--color-text]"
+          style={{ letterSpacing: '-0.02em' }}
+        >
+          Quests
+        </h1>
+        <p className="text-[--color-muted] text-sm mt-1">Complete challenges to earn XP ⚡</p>
       </div>
 
       {/* Domain filter */}
@@ -50,16 +58,16 @@ export default function QuestsPage() {
           <button
             key={f.value}
             onClick={() => setDomainFilter(f.value)}
-            className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-150 border-2 ${
+            className={`flex-shrink-0 px-3 py-1.5 rounded-lg font-barlow font-bold text-xs uppercase tracking-widest transition-all duration-150 border ${
               domainFilter === f.value
                 ? 'text-white border-transparent'
-                : 'bg-[--color-surface] text-[--color-muted] border-[--color-border]'
+                : 'text-[--color-muted] border-[--color-border]'
             }`}
             style={domainFilter === f.value && f.value !== 'all'
               ? { background: DOMAIN_COLORS[f.value as Domain], borderColor: DOMAIN_COLORS[f.value as Domain] }
               : domainFilter === f.value
               ? { background: 'var(--color-accent)', borderColor: 'var(--color-accent)' }
-              : {}}
+              : { background: 'var(--color-surface)' }}
           >
             {f.label}
           </button>
