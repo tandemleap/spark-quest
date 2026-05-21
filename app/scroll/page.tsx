@@ -134,6 +134,34 @@ export default function ScrollPage() {
           style={{ '--scroll-duration': `${scrollDuration}s` } as React.CSSProperties}
         >
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+
+            {/* ── Splash section (spans all 4 columns, appears each loop) ── */}
+            <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 32, alignItems: 'center', justifyContent: 'center', padding: '32px 0 24px', borderBottom: '1px solid #222', marginBottom: 8 }}>
+              {/* Logo */}
+              <img
+                src="/scroll-logo.png"
+                alt="SPARK Quest — Are You Ready?"
+                style={{ height: 260, objectFit: 'contain', filter: 'drop-shadow(0 0 24px rgba(124,58,237,0.35))' }}
+              />
+              {/* Motivational text */}
+              <img
+                src="/scroll-motivational.png"
+                alt="Try new things. Challenge yourself. Step out of your comfort zone. Win cool prizes and trips!"
+                style={{ height: 220, objectFit: 'contain' }}
+              />
+              {/* QR code + caption */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                <img
+                  src="/scroll-qr.png"
+                  alt="QR code to join SPARK Quest"
+                  style={{ width: 160, height: 160, objectFit: 'contain', background: '#fff', borderRadius: 12, padding: 8 }}
+                />
+                <p style={{ fontSize: 14, color: '#A78BFA', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', textAlign: 'center' }}>
+                  Scan to join
+                </p>
+              </div>
+            </div>
+
             {displayKids.map((kid, i) => (
               <KidCard key={`${kid.id}-${i}`} kid={kid} />
             ))}
