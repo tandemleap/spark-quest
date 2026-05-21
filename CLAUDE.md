@@ -26,14 +26,21 @@ Live at: https://spark-quest-theta.vercel.app/
 - Avatar generation: `export const maxDuration = 60` on the route (Vercel Pro required)
 - CSS variable colors with opacity (`bg-[--color-accent]/20`) don't work reliably in Tailwind v4 — use `border-2` + explicit checkmark indicators for selected states instead
 
-## Domain System (replaces categories)
-Five domains: `body` (terracotta), `brain` (amber), `heart` (mauve), `hands` (sage), `team` (violet).
+## Design System
+- **Fonts:** Space Grotesk (body), Barlow Condensed (display/headings) via `next/font/google`
+- Barlow Condensed exposed as `--font-barlow` CSS variable and `.font-barlow` Tailwind utility
+- **Aesthetic:** "Supreme × Duolingo × Spider-Verse" — dark backgrounds, bold condensed ALL CAPS labels, vivid domain accent colors
+- Domain card backgrounds are dark tinted (e.g. `#2A1208` for body) with vivid left-border accents
+
+## Domain System
+Five domains: `body` (terracotta), `brain` (amber), `heart` (mauve/lavender), `hands` (mint), `team` (violet).
 Defined in `lib/types.ts`: `DOMAIN_COLORS`, `DOMAIN_TEXT_COLORS`, `DOMAIN_LABELS`, `DOMAIN_EMOJIS`, `ALL_DOMAINS`.
 - Quests have `domain_tags: Domain[]` (multi-select, first tag wins for card color)
 - Kids have `body_points`, `brain_points`, `heart_points`, `hands_points`, `team_points` columns
 - Drops/Adventures have `domain_requirements: DomainRequirements` (JSONB, e.g. `{ "body": 20, "team": 10 }`)
 - `award_quest_points` RPC atomically increments domain columns when awarding points
 - Domain eligibility checked client-side (progress bars on reward cards) and server-side at redemption
+- `DomainProgressBar` component (`components/ui/DomainProgressBar.tsx`) — multicolor segmented bar showing progress toward a goal cost
 
 ## Grit Mechanic
 - Quests have `is_grit_quest: boolean` — shows 🔥 flame badge on card
@@ -48,30 +55,57 @@ Defined in `lib/types.ts`: `DOMAIN_COLORS`, `DOMAIN_TEXT_COLORS`, `DOMAIN_LABELS
 - Home page fetches `/api/featured-reward` — returns featured item, fallback to highest-tier active adventure
 - `FeaturedReward` type in `lib/types.ts` = `{ type: 'adventure' | 'drop' } & (Adventure | Drop)`
 
-## Avatar Generation
+## Goal System
+Kids can set a short-term goal and a long-term goal — each points at either a Drop or an Adventure.
+- `kids` table: `short_term_goal_id uuid`, `short_term_goal_type text`, `long_term_goal_id uuid`, `long_term_goal_type text`
+- No FK constraint — supports both drops and adventures in same columns (same pattern as redemptions)
+- Goal detail fetched at display time via bulk lookup (not joined on kids table)
+- `DomainProgressBar` renders goal progress using `kidPoints`, `totalEarned`, `targetCost`, `availablePoints`
+- When a reward is redeemed (`/api/rewards/redeem`), the API auto-clears whichever goal slot matches
+- **Goal prompt:** `(kid)/layout.tsx` fetches kid on mount; if either goal is missing and `sessionStorage.goals_prompt_dismissed` is not set, shows a bottom-sheet overlay prompting goal setup. Dismissed via sessionStorage so it reappears on next login.
+
+## Avatar
 - Model: `fofr/face-to-sticker` — always produces sticker/cartoon art regardless of style prompts
 - Inputs: `gender` (neutral/boy/girl) + `vibe` (bold/cool/cute/fierce) — these affect the prompt
 - `prompt_strength: 8` — critical, default is 7; lower values cause gender/vibe to be ignored
-- Lifetime limit: 10 AI generations per kid, tracked in `kids.avatar_generation_count`
-- Each generation saves to `{kid_id}_v{count}.webp` (unique filename prevents CDN cache collisions)
+- **Lifetime limit:** 10 AI generations per kid, tracked in `kids.avatar_generation_count`
+- Each AI generation saves to `{kid_id}_v{count}.webp` (unique filename prevents CDN cache collisions)
 - API always updates `avatar_url` + `avatar_generation_count` on success; returns `previous_avatar_url`
 - If `previous_avatar_url` is non-null, page goes to side-by-side compare screen (previous vs new)
-- Picking "previous" triggers `PATCH /api/kids/[id]` to restore old URL; picking "new" needs no change
-- Non-AI photo upload: `POST /api/avatar/upload` — saves to `{kid_id}_photo.webp`, does NOT increment count
-- Kids can toggle `show_avatar_in_scroll` (PATCH allowed field) — scroll API masks avatar_url when false
+- Picking "previous" triggers `PATCH /api/kids/[id]` to restore old URL; picking "new" needs no DB change
+- **Device photo upload:** `POST /api/avatar/upload` — saves to `{kid_id}_photo.webp`, does NOT increment count, no AI
+- **Scroll visibility:** kids can toggle `show_avatar_in_scroll` — scroll API masks `avatar_url` to null when false
+
+## TV Scroll Display (`/scroll`)
+Landscape ambient display for the program TV — no auth, no nav, auto-scrolling infinite loop.
+- Fetches via `GET /api/scroll` — returns kids (A–Z), recent completions, featured adventure progress, active rewards
+- Content order: 3 full-width splash image panels → groups of 8 kids (2 rows of 4) → reward highlight card → repeat
+- **Splash panels:** 3 separate 800px-tall full-width sections, each showing one image vertically centered
+  - `public/scroll-logo.png` — SPARK Quest graffiti logo (purple glow)
+  - `public/scroll-motivational.png` — motivational text, fills full width
+  - `public/scroll-qr.png` — QR code to join, white background, "Scan to join" label
+- **Reward highlight cards:** full-width, 560px tall, amber (drops) or violet (adventures); shown every 8 kids, cycles through active rewards
+- **Speed:** `TARGET_SPEED = 46 px/s` — scroll duration auto-calculated from content height
+- **Seamless loop:** content list doubled with `-b` uid suffix on second copy; animation runs `-50%` translateY
+- **Ticker:** bottom bar scrolling recent quest completions
+- Kid cards show avatar (or initials), name, XP, domain progress bar toward long-term goal
+- `show_avatar_in_scroll = false` → avatar_url masked to null in API, Avatar component shows initials instead
 
 ## Routes
 ### Kid-facing
 - `/` — login/registration with returning-user detection and "Is this you?" claim flow
-- `/onboarding/avatar` — camera selfie → gender/vibe picker → Replicate → compare screen → Supabase Storage
-- `/home`, `/quests`, `/rewards`, `/leaderboard` — route group `(kid)`, auth guard in layout
-- Avatar thumbnail on `/home` is clickable — links to `/onboarding/avatar` to add/change
+- `/onboarding/avatar` — camera selfie or device photo upload → gender/vibe picker → AI or direct upload → compare screen → Supabase Storage; shows scroll visibility toggle and remaining AI attempts
+- `/home` — dashboard: avatar, points, active quests, featured reward, quick links
+- `/quests` — quest browser with domain filter tabs, quest detail sheet, verify overlay
+- `/rewards` — drops + adventures with domain eligibility bars, redeem flow
+- `/progress-station` — personal progress: domain balance, short + long-term goal cards, goal picker, recent activity; `/leaderboard` redirects here
+- `/scroll` — TV ambient display (no auth, navigate directly)
 
 ### Admin (not linked in kid UI — navigate to `/admin` directly)
-- `/admin` — staff passcode login (default passcode set in `007_seed_staff_config.sql`)
-- `/admin/dashboard` — at-a-glance stats (kids, completions, points, redemptions)
+- `/admin` — staff passcode login
+- `/admin/dashboard` — at-a-glance stats
 - `/admin/kids` — view all kids, search, manually adjust points
-- `/admin/quests` — CRUD quests; category filter + staff filter; "Posted by" field
+- `/admin/quests` — CRUD quests; domain filter + staff filter; "Posted by" field
 - `/admin/rewards` — CRUD drops and adventures; adventure tab shows contribution progress, contributor list, manual unlock button
 - `/admin/completions` — log of all quest completions with staff initials
 - `/admin/redemptions` — log of all reward redemptions
@@ -79,25 +113,26 @@ Defined in `lib/types.ts`: `DOMAIN_COLORS`, `DOMAIN_TEXT_COLORS`, `DOMAIN_LABELS
 
 ### API
 - `POST /api/kids` — register (returns existing kid data on 409 for claim flow)
-- `PATCH /api/kids/[id]` — update `avatar_url` or `available_points`
+- `PATCH /api/kids/[id]` — allowed fields: `avatar_url`, `available_points`, `short_term_goal_id`, `short_term_goal_type`, `long_term_goal_id`, `long_term_goal_type`, `show_avatar_in_scroll`
+- `GET /api/kids/[id]/completions` — last 5 completions with quest title, domain_tags, point_value
+- `GET /api/scroll` — all kids A–Z with domain+goal data, recent completions, featured adventure progress, active rewards
+- `GET /api/featured-reward` — featured drop or adventure for home page
 - `POST /api/quests/verify-pin` — check passcode + already-completed in one step
 - `POST /api/quests/complete` — award points via `award_quest_points` RPC
-- `POST /api/rewards/redeem` — deduct points via `redeem_reward` RPC
-- `POST /api/avatar/generate` — generate sticker avatar via Replicate; accepts `gender`, `vibe`; 403 if limit reached
-- `POST /api/avatar/upload` — save device photo directly (no AI); does not count toward generation limit
+- `POST /api/rewards/redeem` — deduct points via `redeem_reward` RPC, auto-clears matching goal slot
+- `POST /api/avatar/generate` — AI sticker avatar via Replicate; accepts `gender`, `vibe`; returns `avatar_url`, `generation_count`, `previous_avatar_url`; 403 if 10-generation limit reached
+- `POST /api/avatar/upload` — save device photo directly (no AI, no count increment)
 - All `/api/admin/*` routes require `x-admin-token` header
 
 ## Database
-Migrations in `supabase/migrations/` — run 001–007 in order, then 009, 013, 014. (008 is optional sample data.)
+Migrations in `supabase/migrations/` — run in order: 001–007, 009, 013, 014. (008 is optional sample data.)
 Key tables: `kids`, `quests`, `quest_completions`, `drops`, `adventures`, `redemptions`, `staff_config`
-`quests` has a `created_by` column (staff name) added in migration 009.
 
-## Home Page Order
-1. Header (avatar, name, points)
-2. Welcome message
-3. Active Quests (3 featured)
-4. Group Adventure card (if one is active and unlocked)
-5. Quick links (Rewards, Leaderboard)
+Key `kids` columns added post-initial-schema:
+- `body_points`, `brain_points`, `heart_points`, `hands_points`, `team_points` — domain point breakdown
+- `short_term_goal_id`, `short_term_goal_type`, `long_term_goal_id`, `long_term_goal_type` — goal refs (migration 013)
+- `avatar_generation_count integer DEFAULT 0` — lifetime AI generation count (migration 014)
+- `show_avatar_in_scroll boolean DEFAULT true` — scroll visibility toggle (migration 014)
 
 ## Supabase Gotchas
 - After creating or replacing Postgres functions, run `NOTIFY pgrst, 'reload schema';` in the SQL editor if RPCs return PGRST202 errors.
