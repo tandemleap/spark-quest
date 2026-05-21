@@ -4,6 +4,8 @@ import { getServiceSupabase } from '@/lib/supabase'
 
 export const maxDuration = 60
 
+const MAX_GENERATIONS = 10
+
 const MODEL = 'fofr/face-to-sticker:764d4827ea159608a07cdde8ddf1c6000019627515eb02b6b449695fd547e5ef'
 
 const GENDER_PROMPTS: Record<string, string> = {
@@ -20,7 +22,7 @@ const VIBE_PROMPTS: Record<string, string> = {
 }
 
 export async function POST(request: NextRequest) {
-  const { kid_id, image, gender = 'neutral', vibe = 'bold', force = false, isRetry = false } = await request.json()
+  const { kid_id, image, gender = 'neutral', vibe = 'bold' } = await request.json()
 
   if (!kid_id || !image) {
     return NextResponse.json({ error: 'kid_id and image required' }, { status: 400 })
@@ -28,15 +30,20 @@ export async function POST(request: NextRequest) {
 
   const supabase = getServiceSupabase()
 
-  if (!force) {
-    const { data: kid } = await supabase
-      .from('kids')
-      .select('avatar_url')
-      .eq('id', kid_id)
-      .single()
-    if (kid?.avatar_url) {
-      return NextResponse.json({ avatar_url: kid.avatar_url })
-    }
+  const { data: kid } = await supabase
+    .from('kids')
+    .select('avatar_url, avatar_generation_count')
+    .eq('id', kid_id)
+    .single()
+
+  const currentCount = kid?.avatar_generation_count ?? 0
+  const previousAvatarUrl = kid?.avatar_url ?? null
+
+  if (currentCount >= MAX_GENERATIONS) {
+    return NextResponse.json(
+      { error: 'limit_reached', generation_count: currentCount },
+      { status: 403 }
+    )
   }
 
   const genderStr = GENDER_PROMPTS[gender] ?? GENDER_PROMPTS.neutral
@@ -66,7 +73,8 @@ export async function POST(request: NextRequest) {
     const imgRes = await fetch(imageUrl)
     const imgBuffer = await imgRes.arrayBuffer()
 
-    const filename = isRetry ? `${kid_id}_v2.webp` : `${kid_id}.webp`
+    const newCount = currentCount + 1
+    const filename = `${kid_id}_v${newCount}.webp`
 
     const { error: uploadError } = await supabase.storage
       .from('avatars')
@@ -78,11 +86,16 @@ export async function POST(request: NextRequest) {
       .from('avatars')
       .getPublicUrl(filename)
 
-    if (!isRetry) {
-      await supabase.from('kids').update({ avatar_url: publicUrl }).eq('id', kid_id)
-    }
+    await supabase.from('kids').update({
+      avatar_url: publicUrl,
+      avatar_generation_count: newCount,
+    }).eq('id', kid_id)
 
-    return NextResponse.json({ avatar_url: publicUrl })
+    return NextResponse.json({
+      avatar_url: publicUrl,
+      generation_count: newCount,
+      previous_avatar_url: previousAvatarUrl,
+    })
   } catch (err) {
     console.error('Avatar generation error:', err)
     return NextResponse.json({ error: 'Generation failed' }, { status: 500 })

@@ -69,6 +69,8 @@ export interface Kid {
   short_term_goal_type: 'drop' | 'adventure' | null
   long_term_goal_id: string | null
   long_term_goal_type: 'drop' | 'adventure' | null
+  avatar_generation_count: number
+  show_avatar_in_scroll: boolean
 }
 
 export interface Quest {

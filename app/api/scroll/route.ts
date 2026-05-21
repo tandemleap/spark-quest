@@ -7,7 +7,7 @@ export async function GET() {
   const [kidsResult, completionsResult, featuredResult] = await Promise.all([
     supabase
       .from('kids')
-      .select('id, name_handle, total_points_earned, available_points, avatar_url, body_points, brain_points, heart_points, hands_points, team_points, long_term_goal_id, long_term_goal_type')
+      .select('id, name_handle, total_points_earned, available_points, avatar_url, show_avatar_in_scroll, body_points, brain_points, heart_points, hands_points, team_points, long_term_goal_id, long_term_goal_type')
       .order('name_handle', { ascending: true }),
 
     supabase
@@ -44,6 +44,8 @@ export async function GET() {
 
   const enrichedKids = kids.map(k => ({
     ...k,
+    // Mask avatar if kid opted out of scroll visibility
+    avatar_url: k.show_avatar_in_scroll ? k.avatar_url : null,
     long_term_goal: k.long_term_goal_id
       ? (k.long_term_goal_type === 'drop' ? dropMap[k.long_term_goal_id] : advMap[k.long_term_goal_id]) ?? null
       : null,

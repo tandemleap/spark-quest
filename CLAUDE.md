@@ -52,11 +52,13 @@ Defined in `lib/types.ts`: `DOMAIN_COLORS`, `DOMAIN_TEXT_COLORS`, `DOMAIN_LABELS
 - Model: `fofr/face-to-sticker` — always produces sticker/cartoon art regardless of style prompts
 - Inputs: `gender` (neutral/boy/girl) + `vibe` (bold/cool/cute/fierce) — these affect the prompt
 - `prompt_strength: 8` — critical, default is 7; lower values cause gender/vibe to be ignored
-- First generation saves to `{kid_id}.webp`, retry saves to `{kid_id}_v2.webp` (preserves v1 for compare)
-- After retry, user sees side-by-side compare screen and picks Avatar 1 or Avatar 2
-- Picking v2 triggers `PATCH /api/kids/[id]` to update `avatar_url`; v1 needs no DB change
-- `force: true` bypasses the "already has avatar" early return (used when replacing existing avatar)
-- Retry is tracked per React session only (not localStorage) — one retry per page visit
+- Lifetime limit: 10 AI generations per kid, tracked in `kids.avatar_generation_count`
+- Each generation saves to `{kid_id}_v{count}.webp` (unique filename prevents CDN cache collisions)
+- API always updates `avatar_url` + `avatar_generation_count` on success; returns `previous_avatar_url`
+- If `previous_avatar_url` is non-null, page goes to side-by-side compare screen (previous vs new)
+- Picking "previous" triggers `PATCH /api/kids/[id]` to restore old URL; picking "new" needs no change
+- Non-AI photo upload: `POST /api/avatar/upload` — saves to `{kid_id}_photo.webp`, does NOT increment count
+- Kids can toggle `show_avatar_in_scroll` (PATCH allowed field) — scroll API masks avatar_url when false
 
 ## Routes
 ### Kid-facing
@@ -81,11 +83,12 @@ Defined in `lib/types.ts`: `DOMAIN_COLORS`, `DOMAIN_TEXT_COLORS`, `DOMAIN_LABELS
 - `POST /api/quests/verify-pin` — check passcode + already-completed in one step
 - `POST /api/quests/complete` — award points via `award_quest_points` RPC
 - `POST /api/rewards/redeem` — deduct points via `redeem_reward` RPC
-- `POST /api/avatar/generate` — generate sticker avatar via Replicate; accepts `gender`, `vibe`, `force`, `isRetry`
+- `POST /api/avatar/generate` — generate sticker avatar via Replicate; accepts `gender`, `vibe`; 403 if limit reached
+- `POST /api/avatar/upload` — save device photo directly (no AI); does not count toward generation limit
 - All `/api/admin/*` routes require `x-admin-token` header
 
 ## Database
-Migrations in `supabase/migrations/` — run 001–007 in order, then 009. (008 is optional sample data.)
+Migrations in `supabase/migrations/` — run 001–007 in order, then 009, 013, 014. (008 is optional sample data.)
 Key tables: `kids`, `quests`, `quest_completions`, `drops`, `adventures`, `redemptions`, `staff_config`
 `quests` has a `created_by` column (staff name) added in migration 009.
 

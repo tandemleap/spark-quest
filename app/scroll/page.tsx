@@ -37,13 +37,14 @@ interface AdventureProgress {
 }
 
 // Estimated px heights used to calculate scroll duration
-const SPLASH_H    = 370
-const KID_ROW_H   = 206  // 190px card + 16px gap
-const REWARD_H    = 560  // tall enough for ~12s on screen at target speed
-const TARGET_SPEED = 46  // px per second
+const SPLASH_EACH_H = 800  // each full-width splash image panel
+const KID_ROW_H     = 206  // 190px card + 16px gap
+const REWARD_H      = 560  // tall enough for ~12s on screen at target speed
+const TARGET_SPEED  = 46   // px per second
+const SPLASH_COUNT  = 3
 
 type ScrollItem =
-  | { kind: 'splash' }
+  | { kind: 'splash'; imageIndex: 0 | 1 | 2 }
   | { kind: 'kid'; data: ScrollKid; uid: string }
   | { kind: 'reward'; data: ScrollReward; uid: string }
 
@@ -75,10 +76,15 @@ export default function ScrollPage() {
     return () => { supabase.removeChannel(channel) }
   }, [])
 
-  // Build content list: splash → groups of 8 kids with a reward card after each group
+  // Build content list: 3 splash panels → groups of 8 kids with a reward card after each group
   const contentItems = useMemo<ScrollItem[]>(() => {
-    if (kids.length === 0) return [{ kind: 'splash' }]
-    const items: ScrollItem[] = [{ kind: 'splash' }]
+    const splashItems: ScrollItem[] = [
+      { kind: 'splash', imageIndex: 0 },
+      { kind: 'splash', imageIndex: 1 },
+      { kind: 'splash', imageIndex: 2 },
+    ]
+    if (kids.length === 0) return splashItems
+    const items: ScrollItem[] = [...splashItems]
     const KIDS_PER_GROUP = 8  // 2 rows of 4
     for (let i = 0; i < kids.length; i += KIDS_PER_GROUP) {
       const group = kids.slice(i, i + KIDS_PER_GROUP)
@@ -105,7 +111,7 @@ export default function ScrollPage() {
   // Scroll duration based on estimated content height
   const kidRows    = Math.ceil(kids.length / 4)
   const rewardCount = rewards.length > 0 ? Math.ceil(kidRows / 2) : 0
-  const oneLoopH   = SPLASH_H + kidRows * KID_ROW_H + rewardCount * REWARD_H
+  const oneLoopH   = SPLASH_COUNT * SPLASH_EACH_H + kidRows * KID_ROW_H + rewardCount * REWARD_H
   const scrollDuration = Math.max(40, Math.round(oneLoopH / TARGET_SPEED))
 
   // Ticker
@@ -168,14 +174,43 @@ export default function ScrollPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
             {displayItems.map((item, i) => {
               if (item.kind === 'splash') {
+                const splashImages = [
+                  { src: '/scroll-logo.png', alt: 'SPARK Quest — Are You Ready?', filter: 'drop-shadow(0 0 40px rgba(124,58,237,0.5))' },
+                  { src: '/scroll-motivational.png', alt: 'Try new things. Challenge yourself. Win cool prizes and trips!' },
+                  { src: '/scroll-qr.png', alt: 'QR code to join SPARK Quest' },
+                ]
+                const img = splashImages[item.imageIndex]
+                const isQr = item.imageIndex === 2
                 return (
-                  <div key={`splash-${i}`} style={{ gridColumn: '1 / -1', display: 'flex', gap: 32, alignItems: 'center', justifyContent: 'center', padding: '32px 0 28px', borderBottom: '1px solid #222', marginBottom: 8 }}>
-                    <img src="/scroll-logo.png" alt="SPARK Quest — Are You Ready?" style={{ height: 260, objectFit: 'contain', filter: 'drop-shadow(0 0 24px rgba(124,58,237,0.35))' }} />
-                    <img src="/scroll-motivational.png" alt="Try new things. Challenge yourself. Step out of your comfort zone. Win cool prizes and trips!" style={{ height: 210, objectFit: 'contain' }} />
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-                      <img src="/scroll-qr.png" alt="QR code to join SPARK Quest" style={{ width: 155, height: 155, objectFit: 'contain', background: '#fff', borderRadius: 12, padding: 8 }} />
-                      <p style={{ fontSize: 14, color: '#A78BFA', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Scan to join</p>
-                    </div>
+                  <div
+                    key={`splash-${item.imageIndex}-${i}`}
+                    style={{
+                      gridColumn: '1 / -1',
+                      height: SPLASH_EACH_H,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderBottom: isQr ? '1px solid #222' : undefined,
+                      gap: isQr ? 16 : 0,
+                    }}
+                  >
+                    <img
+                      src={img.src}
+                      alt={img.alt}
+                      style={{
+                        maxWidth: isQr ? 400 : '100%',
+                        maxHeight: SPLASH_EACH_H - 48,
+                        objectFit: 'contain',
+                        filter: img.filter,
+                        ...(isQr ? { background: '#fff', borderRadius: 20, padding: 16 } : {}),
+                      }}
+                    />
+                    {isQr && (
+                      <p style={{ fontSize: 20, color: '#A78BFA', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em' }}>
+                        Scan to join
+                      </p>
+                    )}
                   </div>
                 )
               }

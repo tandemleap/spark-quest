@@ -32,6 +32,7 @@ export async function PATCH(
     'avatar_url', 'available_points',
     'short_term_goal_id', 'short_term_goal_type',
     'long_term_goal_id', 'long_term_goal_type',
+    'show_avatar_in_scroll',
   ]
   const updates: Record<string, unknown> = {}
   for (const key of allowed) {
