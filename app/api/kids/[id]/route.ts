@@ -8,16 +8,29 @@ export async function GET(
   const { id } = await params
   const supabase = getServiceSupabase()
 
-  const { data, error } = await supabase
-    .from('kids')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle()
+  // today = start of current day in Central Time
+  const todayStart = new Date(
+    new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' })
+  )
+  todayStart.setHours(0, 0, 0, 0)
+
+  const [{ data, error }, { data: todayCompletions }] = await Promise.all([
+    supabase.from('kids').select('*').eq('id', id).maybeSingle(),
+    supabase
+      .from('quest_completions')
+      .select('points_awarded')
+      .eq('kid_id', id)
+      .gte('completed_at', todayStart.toISOString()),
+  ])
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  return NextResponse.json(data)
+  const daily_points_today = (todayCompletions ?? []).reduce(
+    (sum, c) => sum + (c.points_awarded ?? 0), 0
+  )
+
+  return NextResponse.json({ ...data, daily_points_today })
 }
 
 export async function PATCH(

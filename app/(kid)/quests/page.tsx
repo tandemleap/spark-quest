@@ -14,6 +14,8 @@ const DOMAIN_FILTERS: Array<{ value: 'all' | Domain; label: string }> = [
   ...ALL_DOMAINS.map(d => ({ value: d as Domain, label: `${DOMAIN_EMOJIS[d]} ${DOMAIN_LABELS[d]}` })),
 ]
 
+const DAILY_CAP = 40
+
 export default function QuestsPage() {
   const [quests, setQuests] = useState<Quest[]>([])
   const [loading, setLoading] = useState(true)
@@ -22,11 +24,18 @@ export default function QuestsPage() {
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null)
   const [verifyQuest, setVerifyQuest] = useState<Quest | null>(null)
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set())
+  const [dailyPointsToday, setDailyPointsToday] = useState(0)
 
   useEffect(() => {
-    fetch('/api/quests')
-      .then(r => r.json())
-      .then(data => { setQuests(data); setLoading(false) })
+    const kidId = localStorage.getItem('spark_kid_id')
+    Promise.all([
+      fetch('/api/quests').then(r => r.json()),
+      kidId ? fetch(`/api/kids/${kidId}`).then(r => r.json()) : Promise.resolve(null),
+    ]).then(([questData, kidData]) => {
+      setQuests(questData)
+      if (kidData?.daily_points_today != null) setDailyPointsToday(kidData.daily_points_today)
+      setLoading(false)
+    })
   }, [])
 
   const staffNames = Array.from(
@@ -51,6 +60,25 @@ export default function QuestsPage() {
         </h1>
         <p className="text-[--color-muted] text-sm mt-1">Complete challenges to earn XP ⚡</p>
       </div>
+
+      {/* Daily cap warning */}
+      {dailyPointsToday >= DAILY_CAP ? (
+        <div className="mb-4 px-4 py-3 rounded-2xl flex items-center gap-3 bg-red-950 border border-red-800">
+          <span className="text-xl flex-shrink-0">🚫</span>
+          <div>
+            <p className="text-red-400 font-bold text-sm">Daily limit reached (40/40 pts)</p>
+            <p className="text-red-400/70 text-xs">You&apos;ve maxed out for today. Come back tomorrow!</p>
+          </div>
+        </div>
+      ) : dailyPointsToday >= DAILY_CAP - 10 ? (
+        <div className="mb-4 px-4 py-3 rounded-2xl flex items-center gap-3 bg-amber-950 border border-amber-800">
+          <span className="text-xl flex-shrink-0">⚠️</span>
+          <div>
+            <p className="text-amber-400 font-bold text-sm">Almost at your daily limit!</p>
+            <p className="text-amber-400/70 text-xs">Only {DAILY_CAP - dailyPointsToday} pts left today (40 pt max)</p>
+          </div>
+        </div>
+      ) : null}
 
       {/* Domain filter */}
       <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-3 animate-slide-up" style={{ animationDelay: '0.05s', opacity: 0 }}>
@@ -206,9 +234,11 @@ export default function QuestsPage() {
       {verifyQuest && (
         <QuestVerifyOverlay
           quest={verifyQuest}
+          dailyPointsToday={dailyPointsToday}
           onClose={() => setVerifyQuest(null)}
           onSuccess={(pts) => {
             setCompletedIds(prev => new Set([...prev, verifyQuest.id]))
+            setDailyPointsToday(prev => Math.min(DAILY_CAP, prev + pts))
             setVerifyQuest(null)
           }}
         />

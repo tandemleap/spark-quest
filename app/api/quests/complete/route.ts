@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const { data: totalAwarded, error: rpcError } = await supabase.rpc('award_quest_points', {
+  const { data: actualPoints, error: rpcError } = await supabase.rpc('award_quest_points', {
     p_kid_id: kid_id,
     p_quest_id: quest_id,
     p_points: quest.point_value,
@@ -63,8 +63,29 @@ export async function POST(request: NextRequest) {
   })
 
   if (rpcError) {
+    if (rpcError.message.includes('daily_limit_reached')) {
+      return NextResponse.json(
+        { error: 'daily_limit_reached', daily_remaining: 0 },
+        { status: 403 }
+      )
+    }
     return NextResponse.json({ error: rpcError.message }, { status: 500 })
   }
 
-  return NextResponse.json({ points_awarded: totalAwarded ?? quest.point_value })
+  const points_awarded = actualPoints ?? quest.point_value
+
+  // Compute daily total after award for the response (Central Time day boundary)
+  const todayStart = new Date(
+    new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' })
+  )
+  todayStart.setHours(0, 0, 0, 0)
+  const { data: todayRows } = await supabase
+    .from('quest_completions')
+    .select('points_awarded')
+    .eq('kid_id', kid_id)
+    .gte('completed_at', todayStart.toISOString())
+  const daily_total = (todayRows ?? []).reduce((s, r) => s + (r.points_awarded ?? 0), 0)
+  const daily_remaining = Math.max(0, 40 - daily_total)
+
+  return NextResponse.json({ points_awarded, daily_remaining, daily_total })
 }

@@ -11,13 +11,16 @@ import type { Quest } from '@/lib/types'
 // gives staff time to hand the phone back to the kid.
 const HANDOFF_DELAY = 2800
 
+const DAILY_CAP = 40
+
 interface QuestVerifyOverlayProps {
   quest: Quest
   onClose: () => void
   onSuccess: (pointsAwarded: number) => void
+  dailyPointsToday?: number
 }
 
-type OverlayState = 'pin' | 'initials' | 'powerup' | 'handoff' | 'success' | 'already_done'
+type OverlayState = 'pin' | 'initials' | 'powerup' | 'handoff' | 'success' | 'already_done' | 'daily_limit'
 
 function playSound(path: string) {
   try {
@@ -27,13 +30,14 @@ function playSound(path: string) {
   } catch {}
 }
 
-export function QuestVerifyOverlay({ quest, onClose, onSuccess }: QuestVerifyOverlayProps) {
+export function QuestVerifyOverlay({ quest, onClose, onSuccess, dailyPointsToday = 0 }: QuestVerifyOverlayProps) {
   const [state, setState] = useState<OverlayState>('pin')
   const [pinStatus, setPinStatus] = useState<'idle' | 'checking' | 'success' | 'error'>('idle')
   const [verifiedPin, setVerifiedPin] = useState('')
   const [initials, setInitials] = useState('')
   const [verifying, setVerifying] = useState(false)
   const [totalPointsAwarded, setTotalPointsAwarded] = useState(0)
+  const [dailyRemaining, setDailyRemaining] = useState(DAILY_CAP - dailyPointsToday)
   const [powerupClaimed, setPowerupClaimed] = useState(false)
   const [countdown, setCountdown] = useState(3)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -87,14 +91,19 @@ export function QuestVerifyOverlay({ quest, onClose, onSuccess }: QuestVerifyOve
     })
     setVerifying(false)
     if (res.status === 409) { setState('already_done'); return }
+    if (res.status === 403) {
+      const body = await res.json()
+      if (body.error === 'daily_limit_reached') { setState('daily_limit'); return }
+    }
     if (!res.ok) {
       setPinStatus('error')
       setState('pin')
       setTimeout(() => setPinStatus('idle'), 900)
       return
     }
-    const { points_awarded } = await res.json()
+    const { points_awarded, daily_remaining } = await res.json()
     setTotalPointsAwarded(points_awarded)
+    setDailyRemaining(daily_remaining ?? 0)
 
     // Show handoff screen — celebration fires after HANDOFF_DELAY
     setState('handoff')
@@ -120,13 +129,18 @@ export function QuestVerifyOverlay({ quest, onClose, onSuccess }: QuestVerifyOve
     }
   }
 
+  const dailyLeft = DAILY_CAP - dailyPointsToday
+  const expectedPoints = quest.point_value + (powerupClaimed && quest.grit_powerup_points ? quest.grit_powerup_points : 0)
+  const wasCapped = totalPointsAwarded > 0 && totalPointsAwarded < expectedPoints
+
   const heading: Record<OverlayState, string> = {
-    pin:         'Staff Verification',
-    initials:    'Staff Initials',
-    powerup:     'Bonus Challenge 🔥',
-    handoff:     'Verified! ✓',
-    success:     'Quest Complete! 🎉',
-    already_done:'Already Done',
+    pin:          'Staff Verification',
+    initials:     'Staff Initials',
+    powerup:      'Bonus Challenge 🔥',
+    handoff:      'Verified! ✓',
+    success:      'Quest Complete! 🎉',
+    already_done: 'Already Done',
+    daily_limit:  'Daily Limit Reached',
   }
 
   return (
@@ -144,10 +158,15 @@ export function QuestVerifyOverlay({ quest, onClose, onSuccess }: QuestVerifyOve
 
         {state === 'pin' && (
           <>
-            <p className="text-[--color-muted] text-sm text-center mb-8">
+            <p className="text-[--color-muted] text-sm text-center mb-4">
               Have a SPARK staff member enter the passcode to verify:<br />
               <span className="text-[--color-text] font-semibold mt-1 block">"{quest.title}"</span>
             </p>
+            {dailyLeft <= 10 && dailyLeft > 0 && (
+              <div className="mb-4 px-4 py-2.5 rounded-xl text-center text-sm font-semibold bg-amber-950 text-amber-400 border border-amber-800">
+                ⚠️ Only {dailyLeft} pt{dailyLeft === 1 ? '' : 's'} left today (40 pt daily max)
+              </div>
+            )}
             <PinEntry onSubmit={handlePin} status={pinStatus} />
           </>
         )}
@@ -221,11 +240,41 @@ export function QuestVerifyOverlay({ quest, onClose, onSuccess }: QuestVerifyOve
             <div className="text-6xl animate-pop-in">⚡</div>
             <div className="text-center">
               <p className="text-4xl font-black text-[--color-accent-light]">+{totalPointsAwarded} pts</p>
-              <p className="text-[--color-muted] mt-1">
-                {powerupClaimed ? 'Quest + Power-Up complete! 🔥' : 'Quest complete! Keep it up.'}
-              </p>
+              {wasCapped ? (
+                <p className="text-amber-400 text-sm mt-1 font-semibold">
+                  Daily cap hit — you had {totalPointsAwarded} pts left today
+                </p>
+              ) : (
+                <p className="text-[--color-muted] mt-1">
+                  {powerupClaimed ? 'Quest + Power-Up complete! 🔥' : 'Quest complete! Keep it up.'}
+                </p>
+              )}
+              {dailyRemaining === 0 ? (
+                <p className="text-red-400 text-xs mt-2 font-semibold uppercase tracking-wide">
+                  🚫 40/40 pts — daily limit reached
+                </p>
+              ) : dailyRemaining <= 10 ? (
+                <p className="text-amber-400 text-xs mt-2">
+                  ⚠️ {dailyRemaining} pt{dailyRemaining === 1 ? '' : 's'} left for today
+                </p>
+              ) : null}
             </div>
             <Button size="lg" onClick={onClose} className="mt-2 w-full">Back to Quests</Button>
+          </div>
+        )}
+
+        {state === 'daily_limit' && (
+          <div className="flex flex-col items-center gap-4 py-4 text-center">
+            <div className="text-5xl">🚫</div>
+            <p className="text-[--color-text] font-semibold text-lg">Daily limit reached!</p>
+            <p className="text-[--color-muted] text-sm max-w-xs">
+              You&apos;ve already earned 40 points today — that&apos;s the daily max. Come back tomorrow to keep earning!
+            </p>
+            <div className="w-full rounded-full h-3 mt-1" style={{ background: 'rgba(255,255,255,0.08)' }}>
+              <div className="h-3 rounded-full bg-red-500 w-full" />
+            </div>
+            <p className="text-xs text-red-400 font-semibold">40 / 40 pts today</p>
+            <Button size="lg" variant="secondary" onClick={onClose} className="mt-2 w-full">Got it</Button>
           </div>
         )}
 
