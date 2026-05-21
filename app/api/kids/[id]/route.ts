@@ -28,7 +28,11 @@ export async function PATCH(
   const body = await request.json()
   const supabase = getServiceSupabase()
 
-  const allowed = ['avatar_url', 'available_points']
+  const allowed = [
+    'avatar_url', 'available_points',
+    'short_term_goal_id', 'short_term_goal_type',
+    'long_term_goal_id', 'long_term_goal_type',
+  ]
   const updates: Record<string, unknown> = {}
   for (const key of allowed) {
     if (key in body) updates[key] = body[key]

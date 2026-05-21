@@ -176,3 +176,25 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* TV scroll display */
+@keyframes scroll-marquee-up {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-50%); }
+}
+
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+.scroll-up-infinite {
+  animation: scroll-marquee-up var(--scroll-duration, 90s) linear infinite;
+  will-change: transform;
+}
+
+.ticker-scroll-infinite {
+  animation: ticker-scroll var(--ticker-duration, 60s) linear infinite;
+  will-change: transform;
+  white-space: nowrap;
+}

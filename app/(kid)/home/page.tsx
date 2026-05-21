@@ -219,11 +219,11 @@ export default function HomePage() {
             <p className="text-xs text-[--color-muted] mt-0.5">{kid.available_points} pts to spend</p>
           </Card>
         </Link>
-        <Link href="/leaderboard">
+        <Link href="/progress-station">
           <Card className="text-center py-5 active:scale-[0.97] transition-transform duration-100">
-            <span className="text-3xl block mb-2">🏆</span>
-            <span className="font-barlow font-black text-sm uppercase tracking-wide text-[--color-text]">Leaderboard</span>
-            <p className="text-xs text-[--color-muted] mt-0.5">See the rankings</p>
+            <span className="text-3xl block mb-2">📈</span>
+            <span className="font-barlow font-black text-sm uppercase tracking-wide text-[--color-text]">Progress</span>
+            <p className="text-xs text-[--color-muted] mt-0.5">Goals & history</p>
           </Card>
         </Link>
       </div>

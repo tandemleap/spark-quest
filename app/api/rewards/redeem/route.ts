@@ -78,5 +78,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // Clear any goal slot that matches the just-redeemed reward
+  const { data: kidGoals } = await supabase
+    .from('kids')
+    .select('short_term_goal_id, short_term_goal_type, long_term_goal_id, long_term_goal_type')
+    .eq('id', kid_id)
+    .single()
+
+  if (kidGoals) {
+    const goalClear: Record<string, null> = {}
+    if (kidGoals.short_term_goal_id === reward_id && kidGoals.short_term_goal_type === reward_type) {
+      goalClear.short_term_goal_id = null
+      goalClear.short_term_goal_type = null
+    }
+    if (kidGoals.long_term_goal_id === reward_id && kidGoals.long_term_goal_type === reward_type) {
+      goalClear.long_term_goal_id = null
+      goalClear.long_term_goal_type = null
+    }
+    if (Object.keys(goalClear).length > 0) {
+      await supabase.from('kids').update(goalClear).eq('id', kid_id)
+    }
+  }
+
   return NextResponse.json({ success: true })
 }

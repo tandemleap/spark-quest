@@ -3,6 +3,9 @@
 -- Replaces all existing quest records with the definitive CSV data.
 -- Safe to run when no kid completions exist (quest_completions cascade-deletes).
 
+-- Drop the old category column (domains replace it entirely)
+ALTER TABLE quests DROP COLUMN IF EXISTS category;
+
 DELETE FROM quest_completions;
 DELETE FROM quests;
 

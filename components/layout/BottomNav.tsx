@@ -35,13 +35,13 @@ const tabs = [
     ),
   },
   {
-    href: '/leaderboard',
-    label: 'BOARD',
-    icon: (active: boolean) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.5">
-        <line x1="18" y1="20" x2="18" y2="10" />
-        <line x1="12" y1="20" x2="12" y2="4" />
-        <line x1="6" y1="20" x2="6" y2="14" />
+    href: '/progress-station',
+    label: 'PROGRESS',
+    icon: (_active: boolean) => (
+      // Upward trend / personal journey icon
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="2 17 8.5 10.5 13.5 15.5 22 7" />
+        <polyline points="16 7 22 7 22 13" />
       </svg>
     ),
   },

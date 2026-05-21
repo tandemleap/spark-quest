@@ -65,6 +65,10 @@ export interface Kid {
   heart_points: number
   hands_points: number
   team_points: number
+  short_term_goal_id: string | null
+  short_term_goal_type: 'drop' | 'adventure' | null
+  long_term_goal_id: string | null
+  long_term_goal_type: 'drop' | 'adventure' | null
 }
 
 export interface Quest {
