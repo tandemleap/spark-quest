@@ -66,9 +66,21 @@ export async function GET() {
     }
   }
 
+  // Active rewards for highlight cards
+  const [{ data: drops }, { data: adventures }] = await Promise.all([
+    supabase.from('drops').select('id, title, description, point_cost').eq('is_active', true).order('point_cost'),
+    supabase.from('adventures').select('id, title, description, point_cost_per_kid, kids_threshold').eq('is_active', true).order('point_cost_per_kid'),
+  ])
+
+  const rewards = [
+    ...(drops ?? []).map(d => ({ id: d.id, type: 'drop' as const, title: d.title, description: d.description, cost: d.point_cost })),
+    ...(adventures ?? []).map(a => ({ id: a.id, type: 'adventure' as const, title: a.title, description: a.description, cost: a.point_cost_per_kid })),
+  ]
+
   return NextResponse.json({
     kids: enrichedKids,
     recentCompletions: completionsResult.data ?? [],
     adventureProgress,
+    rewards,
   })
 }
