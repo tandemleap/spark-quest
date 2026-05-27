@@ -38,10 +38,11 @@ interface AdventureProgress {
 
 // Estimated px heights used to calculate scroll duration
 const SPLASH_EACH_H = 800  // each full-width splash image panel
-const KID_ROW_H     = 206  // 190px card + 16px gap
+const KID_ROW_H     = 396  // 380px card + 16px gap (2-column layout)
 const REWARD_H      = 560  // tall enough for ~12s on screen at target speed
 const TARGET_SPEED  = 46   // px per second
 const SPLASH_COUNT  = 3
+const COLS          = 2    // grid columns
 
 type ScrollItem =
   | { kind: 'splash'; imageIndex: 0 | 1 | 2 }
@@ -85,7 +86,7 @@ export default function ScrollPage() {
     ]
     if (kids.length === 0) return splashItems
     const items: ScrollItem[] = [...splashItems]
-    const KIDS_PER_GROUP = 8  // 2 rows of 4
+    const KIDS_PER_GROUP = 4  // 2 rows of 2
     for (let i = 0; i < kids.length; i += KIDS_PER_GROUP) {
       const group = kids.slice(i, i + KIDS_PER_GROUP)
       group.forEach(k => items.push({ kind: 'kid', data: k, uid: k.id }))
@@ -109,7 +110,7 @@ export default function ScrollPage() {
   ], [contentItems])
 
   // Scroll duration based on estimated content height
-  const kidRows    = Math.ceil(kids.length / 4)
+  const kidRows    = Math.ceil(kids.length / COLS)
   const rewardCount = rewards.length > 0 ? Math.ceil(kidRows / 2) : 0
   const oneLoopH   = SPLASH_COUNT * SPLASH_EACH_H + kidRows * KID_ROW_H + rewardCount * REWARD_H
   const scrollDuration = Math.max(40, Math.round(oneLoopH / TARGET_SPEED))
@@ -171,7 +172,7 @@ export default function ScrollPage() {
           className="scroll-up-infinite"
           style={{ '--scroll-duration': `${scrollDuration}s` } as React.CSSProperties}
         >
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
             {displayItems.map((item, i) => {
               if (item.kind === 'splash') {
                 const splashImages = [
@@ -226,13 +227,13 @@ export default function ScrollPage() {
       </div>
 
       {/* ── Fixed Bottom Ticker ── */}
-      <div style={{ height: 48, flexShrink: 0, background: '#141414', borderTop: '1px solid #303030', overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
+      <div style={{ height: 72, flexShrink: 0, background: '#141414', borderTop: '1px solid #303030', overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
         {tickerText ? (
           <div className="ticker-scroll-infinite" style={{ '--ticker-duration': `${tickerDuration}s` } as React.CSSProperties}>
-            <span style={{ fontSize: 15, color: '#555', paddingLeft: '100vw' }}>{doubledTicker}</span>
+            <span style={{ fontSize: 23, color: '#555', paddingLeft: '100vw' }}>{doubledTicker}</span>
           </div>
         ) : (
-          <span style={{ fontSize: 14, color: '#444', paddingLeft: 24 }}>No recent activity yet.</span>
+          <span style={{ fontSize: 21, color: '#444', paddingLeft: 24 }}>No recent activity yet.</span>
         )}
       </div>
     </div>
@@ -319,37 +320,37 @@ function KidCard({ kid }: { kid: ScrollKid }) {
   const hasGoal = !!kid.long_term_goal
 
   return (
-    <div style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 16, padding: '18px 20px', minHeight: 190, display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-        <Avatar avatarUrl={kid.avatar_url} handle={kid.name_handle} size="lg" />
+    <div style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 24, padding: '32px 36px', minHeight: 380, display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 20 }}>
+        <Avatar avatarUrl={kid.avatar_url} handle={kid.name_handle} size="xl" />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 18, textTransform: 'uppercase', letterSpacing: '-0.01em', color: '#F5F5F5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <p style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 36, textTransform: 'uppercase', letterSpacing: '-0.01em', color: '#F5F5F5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {kid.name_handle}
           </p>
-          <p style={{ fontSize: 12, color: '#777', marginTop: 2 }}>
-            <span style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 16, color: '#A78BFA' }}>{kid.total_points_earned}</span>
-            {' '}<span style={{ textTransform: 'uppercase', letterSpacing: '0.1em', fontSize: 10 }}>xp</span>
+          <p style={{ fontSize: 22, color: '#777', marginTop: 4 }}>
+            <span style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 30, color: '#A78BFA' }}>{kid.total_points_earned}</span>
+            {' '}<span style={{ textTransform: 'uppercase', letterSpacing: '0.1em', fontSize: 18 }}>xp</span>
           </p>
         </div>
         {hasGoal ? (
-          <div style={{ textAlign: 'right', flexShrink: 0, maxWidth: 120 }}>
-            <p style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#555', marginBottom: 2 }}>Goal</p>
-            <p style={{ fontSize: 11, color: '#A78BFA', fontWeight: 700, lineHeight: 1.2, textAlign: 'right' }}>{kid.long_term_goal!.title}</p>
+          <div style={{ textAlign: 'right', flexShrink: 0, maxWidth: 220 }}>
+            <p style={{ fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#555', marginBottom: 4 }}>Goal</p>
+            <p style={{ fontSize: 20, color: '#A78BFA', fontWeight: 700, lineHeight: 1.2, textAlign: 'right' }}>{kid.long_term_goal!.title}</p>
           </div>
         ) : (
-          <p style={{ fontSize: 11, color: '#444', fontStyle: 'italic', flexShrink: 0 }}>Setting goals…</p>
+          <p style={{ fontSize: 18, color: '#444', fontStyle: 'italic', flexShrink: 0 }}>Setting goals…</p>
         )}
       </div>
 
       <div style={{ marginTop: 'auto' }}>
         {hasGoal ? (
-          <DomainProgressBar kidPoints={kp} totalEarned={kid.total_points_earned} targetCost={kid.long_term_goal!.cost} availablePoints={kid.available_points} height="sm" showLabel />
+          <DomainProgressBar kidPoints={kp} totalEarned={kid.total_points_earned} targetCost={kid.long_term_goal!.cost} availablePoints={kid.available_points} height="lg" showLabel />
         ) : (
           <>
-            <div style={{ height: 12, borderRadius: 999, background: '#2C2C2A' }}>
+            <div style={{ height: 20, borderRadius: 999, background: '#2C2C2A' }}>
               <div style={{ height: '100%', borderRadius: 999, background: '#333', width: `${Math.min(100, (kid.total_points_earned / 200) * 100)}%` }} />
             </div>
-            <p style={{ fontSize: 10, color: '#444', marginTop: 4 }}>Choose your goal in the app</p>
+            <p style={{ fontSize: 18, color: '#444', marginTop: 8 }}>Choose your goal in the app</p>
           </>
         )}
       </div>
