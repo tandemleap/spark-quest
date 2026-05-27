@@ -68,10 +68,11 @@ export async function GET() {
     }
   }
 
-  // Active rewards for highlight cards
-  const [{ data: drops }, { data: adventures }] = await Promise.all([
+  // Active rewards for highlight cards + active quests for challenge cards
+  const [{ data: drops }, { data: adventures }, { data: questsData }] = await Promise.all([
     supabase.from('drops').select('id, title, description, point_cost').eq('is_active', true).order('point_cost'),
     supabase.from('adventures').select('id, title, description, point_cost_per_kid, kids_threshold').eq('is_active', true).order('point_cost_per_kid'),
+    supabase.from('quests').select('id, title, domain_tags, point_value, is_grit_quest').eq('is_active', true).order('point_value', { ascending: false }).limit(8),
   ])
 
   const rewards = [
@@ -79,10 +80,19 @@ export async function GET() {
     ...(adventures ?? []).map(a => ({ id: a.id, type: 'adventure' as const, title: a.title, description: a.description, cost: a.point_cost_per_kid })),
   ]
 
+  const quests = (questsData ?? []).map(q => ({
+    id: q.id,
+    title: q.title,
+    domain_tags: q.domain_tags ?? [],
+    point_value: q.point_value,
+    is_grit_quest: q.is_grit_quest ?? false,
+  }))
+
   return NextResponse.json({
     kids: enrichedKids,
     recentCompletions: completionsResult.data ?? [],
     adventureProgress,
     rewards,
+    quests,
   })
 }

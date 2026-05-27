@@ -198,3 +198,15 @@ body {
   will-change: transform;
   white-space: nowrap;
 }
+
+/* Per-card ambient animations for the TV scroll display */
+@keyframes card-glow {
+  0%, 100% { box-shadow: 0 0 0 1px #2A2A2A; }
+  50%       { box-shadow: 0 0 32px 4px rgba(167,139,250,0.16), 0 0 0 1px #3D2A6A; }
+}
+
+@keyframes badge-bob {
+  0%, 100% { transform: scale(1) translateY(0); }
+  45%       { transform: scale(1.1) translateY(-5px); }
+  65%       { transform: scale(1.06) translateY(-3px); }
+}
