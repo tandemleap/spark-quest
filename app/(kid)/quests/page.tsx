@@ -109,7 +109,7 @@ export default function QuestsPage() {
             onClick={() => setStaffFilter('all')}
             className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-150 ${
               staffFilter === 'all'
-                ? 'bg-[--color-accent]/30 text-[--color-accent-light] border border-[--color-accent]/40'
+                ? 'bg-[--color-accent]/20 text-[--color-text] border border-[--color-accent]/50 font-bold'
                 : 'bg-[--color-surface] text-[--color-muted] border border-[--color-border]'
             }`}
           >
@@ -121,7 +121,7 @@ export default function QuestsPage() {
               onClick={() => setStaffFilter(name)}
               className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-150 ${
                 staffFilter === name
-                  ? 'bg-[--color-accent]/30 text-[--color-accent-light] border border-[--color-accent]/40'
+                  ? 'bg-[--color-accent]/20 text-[--color-text] border border-[--color-accent]/50 font-bold'
                   : 'bg-[--color-surface] text-[--color-muted] border border-[--color-border]'
               }`}
             >
@@ -173,7 +173,7 @@ export default function QuestsPage() {
                   {DOMAIN_EMOJIS[tag]} {DOMAIN_LABELS[tag]}
                 </span>
               ))}
-              <span className="flex items-center gap-1 text-[--color-accent-light] font-bold text-lg">
+              <span className="flex items-center gap-1 text-[--color-accent] font-bold text-lg">
                 ⚡ {selectedQuest.point_value} pts
               </span>
               {selectedQuest.is_grit_quest && (
