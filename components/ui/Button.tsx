@@ -22,7 +22,7 @@ export function Button({
     'inline-flex items-center justify-center font-bold uppercase tracking-wider rounded-xl transition-all duration-150 active:scale-95 select-none'
 
   const variants = {
-    primary: 'bg-[--color-accent] text-white hover:bg-[--color-accent-dark] disabled:opacity-40',
+    primary: 'bg-[--color-accent] text-[--color-text] hover:bg-[--color-accent-dark] hover:text-white disabled:opacity-40',
     secondary: 'bg-[--color-surface] text-[--color-text] border border-[--color-border] hover:bg-[--color-border] disabled:opacity-40',
     ghost: 'bg-transparent text-[--color-text] underline underline-offset-2 hover:text-[--color-accent] disabled:opacity-40',
     danger: 'bg-red-600 text-white hover:bg-red-700 disabled:opacity-40',

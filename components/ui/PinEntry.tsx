@@ -38,7 +38,7 @@ export function PinEntry({ onSubmit, disabled = false, status = 'idle' }: PinEnt
   const dotColor = (i: number) => {
     if (status === 'error') return 'bg-red-500'
     if (status === 'success') return 'bg-green-500'
-    return i < digits.length ? 'bg-[--color-accent]' : 'bg-[--color-border]'
+    return i < digits.length ? 'bg-[--color-accent]' : 'bg-[#aaaaaa]'
   }
 
   return (
@@ -95,7 +95,7 @@ function KeypadButton({
       className={`h-16 rounded-2xl text-xl font-semibold transition-all duration-100 active:scale-90 select-none
         ${variant === 'ghost'
           ? 'bg-transparent text-[--color-muted] hover:text-[--color-text]'
-          : 'bg-[--color-surface] border border-[--color-border] text-[--color-text] hover:bg-white/5'
+          : 'bg-[#e8e8e8] border border-[#bbbbbb] text-[--color-text] hover:bg-[#d4d4d4] active:bg-[#c0c0c0]'
         }
         disabled:opacity-30`}
     >
