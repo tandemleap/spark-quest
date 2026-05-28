@@ -42,22 +42,22 @@ export function QuestCard({ quest, onClick, style }: QuestCardProps) {
               </span>
             )}
             {quest.repeatable && (
-              <span className="text-[10px] font-semibold text-white/35 uppercase tracking-wide">↻ repeat</span>
+              <span className="text-[10px] font-semibold text-[--color-muted] uppercase tracking-wide">↻ repeat</span>
             )}
             {quest.expires_at && (
-              <span className="text-[10px] font-semibold text-white/35 uppercase tracking-wide">⏰ limited</span>
+              <span className="text-[10px] font-semibold text-[--color-muted] uppercase tracking-wide">⏰ limited</span>
             )}
           </div>
 
           {/* Title — condensed bold */}
           <h3
-            className="font-barlow font-black text-xl leading-tight text-white uppercase"
+            className="font-barlow font-black text-xl leading-tight text-[--color-text] uppercase"
             style={{ letterSpacing: '-0.01em' }}
           >
             {quest.title}
           </h3>
           {quest.description && (
-            <p className="mt-1.5 text-sm text-white/55 line-clamp-2 leading-snug">
+            <p className="mt-1.5 text-sm text-[--color-muted] line-clamp-2 leading-snug">
               {quest.description}
             </p>
           )}
@@ -82,7 +82,7 @@ export function QuestCard({ quest, onClick, style }: QuestCardProps) {
             {quest.point_value}
           </span>
           {quest.grit_powerup_points && (
-            <span className="text-[8px] font-bold leading-none mt-0.5 text-white/40">
+            <span className="text-[8px] font-bold leading-none mt-0.5 text-[--color-muted]">
               +{quest.grit_powerup_points}
             </span>
           )}

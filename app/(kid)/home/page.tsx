@@ -131,12 +131,12 @@ export default function HomePage() {
                         <span className="text-[10px] font-black uppercase px-1 py-0.5 rounded-sm" style={{ background: '#FF3322', color: '#fff' }}>🔥</span>
                       )}
                     </div>
-                    <h3 className="font-barlow font-black text-lg uppercase leading-tight text-white" style={{ letterSpacing: '-0.01em' }}>
+                    <h3 className="font-barlow font-black text-lg uppercase leading-tight text-[--color-text]" style={{ letterSpacing: '-0.01em' }}>
                       {q.title}
                     </h3>
                   </div>
                   <div className="ml-3 flex-shrink-0 font-barlow font-black text-xl" style={{ color: accent }}>
-                    {q.point_value}<span className="text-xs font-bold ml-0.5 text-white/40">pt</span>
+                    {q.point_value}<span className="text-xs font-bold ml-0.5 text-[--color-muted]">pt</span>
                   </div>
                 </div>
               </Link>

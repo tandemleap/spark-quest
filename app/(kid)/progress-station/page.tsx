@@ -33,11 +33,11 @@ interface GoalCompletion {
 type GoalSlot = 'short' | 'long'
 
 const DOMAIN_BAR_COLORS: Record<string, string> = {
-  body:  '#D2643C',
-  brain: '#FAB83C',
-  heart: '#D282A0',
-  hands: '#50BE96',
-  team:  '#8C78E6',
+  body:  '#ff9933',
+  brain: '#ffcc33',
+  heart: '#993399',
+  hands: '#33cc00',
+  team:  '#3399cc',
 }
 
 export default function ProgressStationPage() {
@@ -179,7 +179,7 @@ export default function ProgressStationPage() {
                   style={{
                     width: size, height: size,
                     borderRadius: '50%',
-                    background: pts > 0 ? DOMAIN_BAR_COLORS[d] : '#333',
+                    background: pts > 0 ? DOMAIN_BAR_COLORS[d] : '#dddddd',
                     transition: 'all 0.4s ease',
                   }}
                 />
@@ -235,7 +235,7 @@ export default function ProgressStationPage() {
                 <span className="w-12 text-xs font-bold flex-shrink-0" style={{ color: DOMAIN_BAR_COLORS[d] }}>
                   {DOMAIN_LABELS[d]}
                 </span>
-                <div className="flex-1 rounded-full h-2" style={{ background: '#2C2C2A' }}>
+                <div className="flex-1 rounded-full h-2" style={{ background: '#e0e0e0' }}>
                   <div
                     className="h-2 rounded-full transition-all duration-700"
                     style={{ width: `${pct}%`, background: DOMAIN_BAR_COLORS[d] }}

@@ -3,11 +3,11 @@
 // to how many points the kid earned in each domain.
 
 const DOMAIN_SEGMENTS = [
-  { key: 'body'  as const, color: '#D2643C' },
-  { key: 'brain' as const, color: '#FAB83C' },
-  { key: 'heart' as const, color: '#D282A0' },
-  { key: 'hands' as const, color: '#50BE96' },
-  { key: 'team'  as const, color: '#8C78E6' },
+  { key: 'body'  as const, color: '#ff9933' },
+  { key: 'brain' as const, color: '#ffcc33' },
+  { key: 'heart' as const, color: '#993399' },
+  { key: 'hands' as const, color: '#33cc00' },
+  { key: 'team'  as const, color: '#3399cc' },
 ]
 
 interface DomainProgressBarProps {
@@ -41,7 +41,7 @@ export function DomainProgressBar({
     <div>
       {/* Track */}
       <div
-        style={{ height: h, borderRadius: 999, background: '#2C2C2A', position: 'relative', overflow: 'hidden' }}
+        style={{ height: h, borderRadius: 999, background: '#e0e0e0', position: 'relative', overflow: 'hidden' }}
       >
         {/* Filled portion — width animates, segments split by flex */}
         <div
