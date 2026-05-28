@@ -205,6 +205,11 @@ body {
   50%       { box-shadow: 0 4px 28px rgba(51,153,204,0.28); }
 }
 
+@keyframes yellow-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px #ffcc33, 0 2px 8px rgba(0,0,0,0.07); }
+  50%       { box-shadow: 0 0 36px 8px rgba(255,204,51,0.65), 0 0 0 3px #ffcc33; }
+}
+
 @keyframes badge-bob {
   0%, 100% { transform: scale(1) translateY(0); }
   45%       { transform: scale(1.1) translateY(-5px); }

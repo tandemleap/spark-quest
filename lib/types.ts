@@ -87,6 +87,7 @@ export interface Quest {
   grit_powerup_points: number | null
   created_by: string | null
   created_at: string
+  image_url: string | null
 }
 
 export interface QuestCompletion {
@@ -109,6 +110,7 @@ export interface Drop {
   is_featured: boolean
   domain_requirements: DomainRequirements
   created_at: string
+  image_url: string | null
 }
 
 export interface Adventure {
@@ -124,6 +126,7 @@ export interface Adventure {
   domain_requirements: DomainRequirements
   unlocked_at: string | null
   created_at: string
+  image_url: string | null
   points_contributed?: number
   contributors_count?: number
 }

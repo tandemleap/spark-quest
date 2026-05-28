@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, FormEvent } from 'react'
+import { useState, useEffect, useRef, FormEvent } from 'react'
 import { AdminNav } from '@/components/layout/AdminNav'
 import { Button } from '@/components/ui/Button'
 import { ALL_DOMAINS, DOMAIN_LABELS, DOMAIN_EMOJIS, DOMAIN_COLORS } from '@/lib/types'
@@ -28,6 +28,9 @@ export default function AdminQuestsPage() {
   const [saving, setSaving] = useState(false)
   const [domainFilter, setDomainFilter] = useState<'all' | Domain>('all')
   const [staffFilter, setStaffFilter] = useState('all')
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [imageUploading, setImageUploading] = useState(false)
+  const imageInputRef = useRef<HTMLInputElement>(null)
 
   function getToken() { return sessionStorage.getItem('spark_admin_token') ?? '' }
 
@@ -40,11 +43,13 @@ export default function AdminQuestsPage() {
   function openNew() {
     setEditingQuest(null)
     setForm(DEFAULT_FORM)
+    setImageUrl(null)
     setShowForm(true)
   }
 
   function openEdit(q: Quest) {
     setEditingQuest(q)
+    setImageUrl(q.image_url ?? null)
     setForm({
       title: q.title,
       description: q.description ?? '',
@@ -109,6 +114,27 @@ export default function AdminQuestsPage() {
     }
   }
 
+  async function handleImagePick(file: File) {
+    if (!editingQuest) return
+    setImageUploading(true)
+    const reader = new FileReader()
+    reader.onload = async (e) => {
+      const base64 = e.target?.result as string
+      const res = await fetch('/api/admin/upload-card-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': getToken() },
+        body: JSON.stringify({ base64, entity_type: 'quest', entity_id: editingQuest.id }),
+      })
+      setImageUploading(false)
+      if (res.ok) {
+        const { image_url } = await res.json()
+        setImageUrl(image_url)
+        setQuests(prev => prev.map(q => q.id === editingQuest.id ? { ...q, image_url } : q))
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
   const staffNames = Array.from(new Set(quests.map(q => q.created_by).filter(Boolean) as string[])).sort()
 
   const filtered = quests
@@ -161,6 +187,7 @@ export default function AdminQuestsPage() {
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <p className="font-semibold text-[--color-text] truncate">{q.title}</p>
                     {q.is_grit_quest && <span className="text-xs">🔥</span>}
+                    {q.image_url && <span className="text-xs text-[--color-muted]">🖼</span>}
                   </div>
                   <p className="text-xs text-[--color-muted]">
                     {(q.domain_tags ?? []).map(d => `${DOMAIN_EMOJIS[d]} ${DOMAIN_LABELS[d]}`).join(' · ') || 'No domain'}
@@ -193,6 +220,33 @@ export default function AdminQuestsPage() {
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <AInput label="Title" value={form.title} onChange={v => setForm(f => ({ ...f, title: v }))} required />
               <ATextarea label="Description (shown to kids when they tap the quest)" value={form.description} onChange={v => setForm(f => ({ ...f, description: v }))} />
+
+              {/* Card image — only available after quest is saved */}
+              {editingQuest ? (
+                <div>
+                  <label className="text-xs text-[--color-muted] mb-2 block">Card Image (shown on scroll display)</label>
+                  <div className="flex items-center gap-3">
+                    {imageUrl ? (
+                      <img src={imageUrl} alt="Card" className="w-20 h-14 object-cover rounded-xl border border-[--color-border]" />
+                    ) : (
+                      <div className="w-20 h-14 rounded-xl border border-dashed border-[--color-border] flex items-center justify-center text-[--color-muted] text-xs">No image</div>
+                    )}
+                    <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={e => { if (e.target.files?.[0]) handleImagePick(e.target.files[0]) }} />
+                    <button
+                      type="button"
+                      disabled={imageUploading}
+                      onClick={() => imageInputRef.current?.click()}
+                      className="px-3 py-2 text-xs font-semibold rounded-xl border border-[--color-border] text-[--color-text] hover:border-[--color-accent] disabled:opacity-50"
+                    >
+                      {imageUploading ? 'Uploading…' : imageUrl ? 'Change image' : 'Upload image'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-[--color-muted] bg-[--color-bg] border border-[--color-border] rounded-xl px-3 py-2">
+                  💡 Save this quest first, then edit it to add a card image.
+                </p>
+              )}
 
               {/* Domain tags multi-select */}
               <div>

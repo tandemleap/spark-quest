@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, FormEvent } from 'react'
+import { useState, useEffect, useRef, FormEvent } from 'react'
 import { AdminNav } from '@/components/layout/AdminNav'
 import { Button } from '@/components/ui/Button'
 import { ALL_DOMAINS, DOMAIN_LABELS, DOMAIN_EMOJIS, DOMAIN_COLORS } from '@/lib/types'
@@ -47,6 +47,9 @@ export default function AdminRewardsPage() {
   const [saving, setSaving] = useState(false)
   const [unlocking, setUnlocking] = useState<string | null>(null)
   const [featuring, setFeaturing] = useState<string | null>(null)
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [imageUploading, setImageUploading] = useState(false)
+  const imageInputRef = useRef<HTMLInputElement>(null)
 
   function getToken() { return sessionStorage.getItem('spark_admin_token') ?? '' }
 
@@ -60,6 +63,7 @@ export default function AdminRewardsPage() {
 
   function openNew() {
     setEditingId(null)
+    setImageUrl(null)
     if (tab === 'drops') setDropForm(DEFAULT_DROP)
     else setAdvForm(DEFAULT_ADV)
     setShowForm(true)
@@ -67,6 +71,7 @@ export default function AdminRewardsPage() {
 
   function openEdit(item: Drop | AdventureWithContributors) {
     setEditingId(item.id)
+    setImageUrl(item.image_url ?? null)
     if (tab === 'drops') {
       const d = item as Drop
       setDropForm({
@@ -90,6 +95,29 @@ export default function AdminRewardsPage() {
       })
     }
     setShowForm(true)
+  }
+
+  async function handleImagePick(file: File) {
+    if (!editingId) return
+    setImageUploading(true)
+    const entity_type = tab === 'drops' ? 'drop' : 'adventure'
+    const reader = new FileReader()
+    reader.onload = async (e) => {
+      const base64 = e.target?.result as string
+      const res = await fetch('/api/admin/upload-card-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': getToken() },
+        body: JSON.stringify({ base64, entity_type, entity_id: editingId }),
+      })
+      setImageUploading(false)
+      if (res.ok) {
+        const { image_url } = await res.json()
+        setImageUrl(image_url)
+        if (tab === 'drops') setDrops(prev => prev.map(d => d.id === editingId ? { ...d, image_url } : d))
+        else setAdventures(prev => prev.map(a => a.id === editingId ? { ...a, image_url } : a))
+      }
+    }
+    reader.readAsDataURL(file)
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -209,6 +237,7 @@ export default function AdminRewardsPage() {
                   <div className="flex items-center gap-2">
                     <p className="font-semibold text-[--color-text] truncate">{item.title}</p>
                     {item.is_featured && <span className="text-xs text-yellow-400 flex-shrink-0">⭐ Featured</span>}
+                    {item.image_url && <span className="text-xs text-[--color-muted] flex-shrink-0">🖼</span>}
                   </div>
                   <p className="text-xs text-[--color-muted]">
                     {item.point_cost} pts{item.quantity_available !== null ? ` · ${item.quantity_available} left` : ' · unlimited'}
@@ -355,6 +384,33 @@ export default function AdminRewardsPage() {
                   </label>
                 </>
               )}
+              {/* Card image — only available when editing */}
+              {editingId ? (
+                <div>
+                  <label className="text-xs text-[--color-muted] mb-2 block">Card Image (shown on scroll display)</label>
+                  <div className="flex items-center gap-3">
+                    {imageUrl ? (
+                      <img src={imageUrl} alt="Card" className="w-20 h-14 object-cover rounded-xl border border-[--color-border]" />
+                    ) : (
+                      <div className="w-20 h-14 rounded-xl border border-dashed border-[--color-border] flex items-center justify-center text-[--color-muted] text-xs">No image</div>
+                    )}
+                    <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={e => { if (e.target.files?.[0]) handleImagePick(e.target.files[0]) }} />
+                    <button
+                      type="button"
+                      disabled={imageUploading}
+                      onClick={() => imageInputRef.current?.click()}
+                      className="px-3 py-2 text-xs font-semibold rounded-xl border border-[--color-border] text-[--color-text] hover:border-[--color-accent] disabled:opacity-50"
+                    >
+                      {imageUploading ? 'Uploading…' : imageUrl ? 'Change image' : 'Upload image'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-[--color-muted] bg-[--color-bg] border border-[--color-border] rounded-xl px-3 py-2">
+                  💡 Save this reward first, then edit it to add a card image.
+                </p>
+              )}
+
               <div className="flex gap-3 mt-2">
                 <Button type="button" variant="secondary" className="flex-1" onClick={() => setShowForm(false)}>Cancel</Button>
                 <Button type="submit" className="flex-1" loading={saving}>Save</Button>

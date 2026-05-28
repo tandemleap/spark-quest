@@ -4,7 +4,10 @@ import { getServiceSupabase } from '@/lib/supabase'
 export async function GET() {
   const supabase = getServiceSupabase()
 
-  const [kidsResult, completionsResult, featuredResult] = await Promise.all([
+  // Start of today in Central Time (program timezone)
+  const todayCtStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(new Date())
+
+  const [kidsResult, completionsResult, featuredResult, todayResult] = await Promise.all([
     supabase
       .from('kids')
       .select('id, name_handle, total_points_earned, available_points, avatar_url, show_avatar_in_scroll, body_points, brain_points, heart_points, hands_points, team_points, long_term_goal_id, long_term_goal_type')
@@ -22,9 +25,24 @@ export async function GET() {
       .eq('is_active', true)
       .eq('is_featured', true)
       .maybeSingle(),
+
+    // Fetch today's completions (last 30h covers full CT day regardless of DST)
+    supabase
+      .from('quest_completions')
+      .select('kid_id, points_awarded, completed_at')
+      .gte('completed_at', new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString()),
   ])
 
   const kids = kidsResult.data ?? []
+
+  // Build per-kid today's points map (filter to exact CT date)
+  const todayPtsMap: Record<string, number> = {}
+  for (const c of todayResult.data ?? []) {
+    const cCtDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(new Date(c.completed_at))
+    if (cCtDate === todayCtStr) {
+      todayPtsMap[c.kid_id] = (todayPtsMap[c.kid_id] ?? 0) + c.points_awarded
+    }
+  }
 
   // Bulk-fetch goal reward details
   const dropIds = kids.filter(k => k.long_term_goal_type === 'drop' && k.long_term_goal_id).map(k => k.long_term_goal_id as string)
@@ -49,6 +67,7 @@ export async function GET() {
     long_term_goal: k.long_term_goal_id
       ? (k.long_term_goal_type === 'drop' ? dropMap[k.long_term_goal_id] : advMap[k.long_term_goal_id]) ?? null
       : null,
+    daily_points_today: todayPtsMap[k.id] ?? 0,
   }))
 
   // Featured adventure progress for header
@@ -70,14 +89,14 @@ export async function GET() {
 
   // Active rewards for highlight cards + active quests for challenge cards
   const [{ data: drops }, { data: adventures }, { data: questsData }] = await Promise.all([
-    supabase.from('drops').select('id, title, description, point_cost').eq('is_active', true).order('point_cost'),
-    supabase.from('adventures').select('id, title, description, point_cost_per_kid, kids_threshold').eq('is_active', true).order('point_cost_per_kid'),
-    supabase.from('quests').select('id, title, domain_tags, point_value, is_grit_quest').eq('is_active', true).order('point_value', { ascending: false }).limit(8),
+    supabase.from('drops').select('id, title, description, point_cost, image_url').eq('is_active', true).order('point_cost'),
+    supabase.from('adventures').select('id, title, description, point_cost_per_kid, kids_threshold, image_url').eq('is_active', true).order('point_cost_per_kid'),
+    supabase.from('quests').select('id, title, domain_tags, point_value, is_grit_quest, image_url').eq('is_active', true).order('point_value', { ascending: false }).limit(8),
   ])
 
   const rewards = [
-    ...(drops ?? []).map(d => ({ id: d.id, type: 'drop' as const, title: d.title, description: d.description, cost: d.point_cost })),
-    ...(adventures ?? []).map(a => ({ id: a.id, type: 'adventure' as const, title: a.title, description: a.description, cost: a.point_cost_per_kid })),
+    ...(drops ?? []).map(d => ({ id: d.id, type: 'drop' as const, title: d.title, description: d.description, cost: d.point_cost, image_url: d.image_url ?? null })),
+    ...(adventures ?? []).map(a => ({ id: a.id, type: 'adventure' as const, title: a.title, description: a.description, cost: a.point_cost_per_kid, image_url: a.image_url ?? null })),
   ]
 
   const quests = (questsData ?? []).map(q => ({
@@ -86,6 +105,7 @@ export async function GET() {
     domain_tags: q.domain_tags ?? [],
     point_value: q.point_value,
     is_grit_quest: q.is_grit_quest ?? false,
+    image_url: q.image_url ?? null,
   }))
 
   return NextResponse.json({
