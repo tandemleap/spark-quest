@@ -5,15 +5,15 @@
 
 @theme inline {
   /* Core palette */
-  --color-bg: #0D0D0D;
-  --color-surface: #141414;
-  --color-border: #303030;
-  --color-accent: #7C3AED;
-  --color-accent-light: #A78BFA;
-  --color-accent-dark: #5B21B6;
-  --color-text: #F5F5F5;
-  --color-muted: #777777;
-  --color-grit: #FF3322;
+  --color-bg: #ffffff;
+  --color-surface: #f4f4f4;
+  --color-border: #dddddd;
+  --color-accent: #3399cc;
+  --color-accent-light: #55aadd;
+  --color-accent-dark: #1a7aaa;
+  --color-text: #111111;
+  --color-muted: #666666;
+  --color-grit: #cc3333;
 
   /* Typography */
   --font-display: "Space Grotesk", system-ui, sans-serif;
@@ -29,12 +29,12 @@
 }
 
 html {
-  background: #0D0D0D;
+  background: #ffffff;
 }
 
 body {
-  background: #0D0D0D;
-  color: #F5F5F5;
+  background: #ffffff;
+  color: #111111;
   font-family: "Space Grotesk", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -201,8 +201,8 @@ body {
 
 /* Per-card ambient animations for the TV scroll display */
 @keyframes card-glow {
-  0%, 100% { box-shadow: 0 0 0 1px #2A2A2A; }
-  50%       { box-shadow: 0 0 32px 4px rgba(167,139,250,0.16), 0 0 0 1px #3D2A6A; }
+  0%, 100% { box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+  50%       { box-shadow: 0 4px 28px rgba(51,153,204,0.28); }
 }
 
 @keyframes badge-bob {

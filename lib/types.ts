@@ -3,28 +3,28 @@ export type Domain = 'body' | 'brain' | 'heart' | 'hands' | 'team'
 export const ALL_DOMAINS: Domain[] = ['body', 'brain', 'heart', 'hands', 'team']
 
 export const DOMAIN_COLORS: Record<Domain, string> = {
-  body:  '#E07040',  // vivid terracotta
-  brain: '#F0A020',  // vivid amber
-  heart: '#C57FE8',  // vivid lavender
-  hands: '#30BE78',  // vivid mint
-  team:  '#8B5CF6',  // vivid violet
+  body:  '#ff9933',  // orange
+  brain: '#ffcc33',  // yellow
+  heart: '#993399',  // purple
+  hands: '#33cc00',  // green
+  team:  '#3399cc',  // blue
 }
 
-// Dark tinted card backgrounds keyed by domain
+// Light tinted card backgrounds keyed by domain
 const DOMAIN_CARD_COLORS: Record<Domain, string> = {
-  body:  '#2A1208',
-  brain: '#281A00',
-  heart: '#1E0F30',
-  hands: '#0A1F12',
-  team:  '#160830',
+  body:  '#fff4e6',
+  brain: '#fffde6',
+  heart: '#f8e6f8',
+  hands: '#eefee6',
+  team:  '#e6f4ff',
 }
 
 export const DOMAIN_TEXT_COLORS: Record<Domain, string> = {
-  body:  '#F0F0F0',
-  brain: '#F0F0F0',
-  heart: '#F0F0F0',
-  hands: '#F0F0F0',
-  team:  '#F0F0F0',
+  body:  '#111111',
+  brain: '#111111',
+  heart: '#111111',
+  hands: '#111111',
+  team:  '#111111',
 }
 
 export const DOMAIN_LABELS: Record<Domain, string> = {
@@ -50,7 +50,7 @@ export function getDomainCardColor(tags: Domain[]): string {
 }
 
 export function getDomainCardTextColor(_tags: Domain[]): string {
-  return '#F0F0F0'
+  return '#111111'
 }
 
 export interface Kid {

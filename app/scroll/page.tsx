@@ -46,18 +46,18 @@ interface AdventureProgress {
 
 // Pixel heights for scroll-duration calculation
 const SPLASH_EACH_H = 800
-const KID_H         = 396   // 380px card + 16px gap
+const KID_H         = 496   // 480px card + 16px gap
 const QUEST_H       = 296   // 280px card + 16px gap
 const REWARD_H      = 576   // 560px card + 16px gap
 // Left column is faster; right column is ~18% slower (longer duration)
 const LEFT_SPEED    = 46    // px/s
-const RIGHT_SPEED   = 38    // px/s  (~18% slower → parallax effect)
+const RIGHT_SPEED   = 38    // px/s
 
 const DOMAIN_COLORS: Record<string, string> = {
-  body:  '#E07040', brain: '#F0A020', heart: '#C57FE8', hands: '#30BE78', team: '#8B5CF6',
+  body:  '#ff9933', brain: '#ffcc33', heart: '#993399', hands: '#33cc00', team: '#3399cc',
 }
 const DOMAIN_BG: Record<string, string> = {
-  body:  '#2A1208', brain: '#281A00', heart: '#1E0F30', hands: '#0A1F12', team: '#160830',
+  body:  '#fff4e6', brain: '#fffde6', heart: '#f8e6f8', hands: '#eefee6', team: '#e6f4ff',
 }
 const DOMAIN_EMOJI: Record<string, string> = {
   body: '💪', brain: '🧠', heart: '❤️', hands: '🙌', team: '🤝',
@@ -85,7 +85,6 @@ function buildColumn(
     kids.slice(i, i + GROUP).forEach(k =>
       items.push({ kind: 'kid', data: k, uid: k.id + suffix })
     )
-    // Alternate: quest then reward
     const turn = Math.floor(i / GROUP)
     if (turn % 2 === 0 && qi < quests.length) {
       items.push({ kind: 'quest', data: quests[qi], uid: `quest-${quests[qi].id}${suffix}` })
@@ -95,7 +94,6 @@ function buildColumn(
       ri++
     }
   }
-  // Flush leftovers
   while (qi < quests.length) {
     items.push({ kind: 'quest', data: quests[qi], uid: `quest-${quests[qi].id}${suffix}` })
     qi++
@@ -153,11 +151,9 @@ export default function ScrollPage() {
     return () => { supabase.removeChannel(channel) }
   }, [])
 
-  // Split kids A-Z into left (even) and right (odd) columns
   const leftKids  = useMemo(() => kids.filter((_, i) => i % 2 === 0), [kids])
   const rightKids = useMemo(() => kids.filter((_, i) => i % 2 !== 0), [kids])
 
-  // Split quests and rewards across columns
   const leftQuests  = useMemo(() => quests.filter((_, i) => i % 2 === 0), [quests])
   const rightQuests = useMemo(() => quests.filter((_, i) => i % 2 !== 0), [quests])
   const leftRewards  = useMemo(() => rewards.filter((_, i) => i % 2 === 0), [rewards])
@@ -172,7 +168,6 @@ export default function ScrollPage() {
   const leftDuration  = Math.max(40, Math.round(colHeight(leftItems)  / LEFT_SPEED))
   const rightDuration = Math.max(48, Math.round(colHeight(rightItems) / RIGHT_SPEED))
 
-  // Ticker
   const tickerItems = completions.map(c =>
     `⚡ ${c.kids?.name_handle ?? '?'} completed "${c.quests?.title ?? '?'}" +${c.points_awarded}pts`
   )
@@ -182,41 +177,41 @@ export default function ScrollPage() {
 
   if (loading) {
     return (
-      <div style={{ background: '#0D0D0D', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ color: '#7C3AED', fontSize: 32, fontWeight: 900 }}>Loading…</span>
+      <div style={{ background: '#ffffff', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ color: '#3399cc', fontSize: 32, fontWeight: 900 }}>Loading…</span>
       </div>
     )
   }
 
   return (
-    <div style={{ background: '#0D0D0D', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: '"Space Grotesk", system-ui, sans-serif', color: '#F5F5F5' }}>
+    <div style={{ background: '#ffffff', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: '"Space Grotesk", system-ui, sans-serif', color: '#111111' }}>
 
       {/* ── Fixed Header ── */}
-      <div style={{ height: 80, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px', background: '#141414', borderBottom: '1px solid #303030' }}>
-        <span style={{ fontSize: 28, fontFamily: 'var(--font-barlow)', fontWeight: 900, letterSpacing: '-0.01em', color: '#A78BFA' }}>
+      <div style={{ height: 80, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px', background: '#f4f4f4', borderBottom: '2px solid #dddddd' }}>
+        <span style={{ fontSize: 28, fontFamily: 'var(--font-barlow)', fontWeight: 900, letterSpacing: '-0.01em', color: '#3399cc' }}>
           ⚡ SPARK QUEST
         </span>
         <div style={{ textAlign: 'center' }}>
-          <p style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#777' }}>Progress Board</p>
-          <p style={{ fontSize: 11, color: '#555', marginTop: 2 }}>{kids.length} members • A–Z</p>
+          <p style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#666666' }}>Progress Board</p>
+          <p style={{ fontSize: 11, color: '#888888', marginTop: 2 }}>{kids.length} members • A–Z</p>
         </div>
         <div style={{ textAlign: 'right', minWidth: 260 }}>
           {adventureProgress ? (
             <>
-              <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#A78BFA', marginBottom: 4 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#3399cc', marginBottom: 4 }}>
                 🗺 {adventureProgress.title}
               </p>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ flex: 1, height: 8, borderRadius: 999, background: '#2C2C2A', position: 'relative', overflow: 'hidden' }}>
-                  <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', borderRadius: 999, background: '#7C3AED', width: `${Math.min(100, (adventureProgress.contributed / adventureProgress.target) * 100)}%` }} />
+                <div style={{ flex: 1, height: 8, borderRadius: 999, background: '#e0e0e0', position: 'relative', overflow: 'hidden' }}>
+                  <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', borderRadius: 999, background: '#3399cc', width: `${Math.min(100, (adventureProgress.contributed / adventureProgress.target) * 100)}%` }} />
                 </div>
-                <span style={{ fontSize: 11, color: '#777', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 11, color: '#666666', whiteSpace: 'nowrap' }}>
                   {adventureProgress.contributed.toLocaleString()} / {adventureProgress.target.toLocaleString()}
                 </span>
               </div>
             </>
           ) : (
-            <p style={{ fontSize: 12, color: '#555' }}>No featured adventure</p>
+            <p style={{ fontSize: 12, color: '#888888' }}>No featured adventure</p>
           )}
         </div>
       </div>
@@ -250,13 +245,13 @@ export default function ScrollPage() {
       </div>
 
       {/* ── Fixed Bottom Ticker ── */}
-      <div style={{ height: 72, flexShrink: 0, background: '#141414', borderTop: '1px solid #303030', overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
+      <div style={{ height: 110, flexShrink: 0, background: '#f4f4f4', borderTop: '2px solid #dddddd', overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
         {tickerText ? (
           <div className="ticker-scroll-infinite" style={{ '--ticker-duration': `${tickerDuration}s` } as React.CSSProperties}>
-            <span style={{ fontSize: 23, color: '#555', paddingLeft: '100vw' }}>{doubledTicker}</span>
+            <span style={{ fontSize: 46, fontFamily: 'var(--font-barlow)', fontWeight: 700, color: '#333333', paddingLeft: '100vw' }}>{doubledTicker}</span>
           </div>
         ) : (
-          <span style={{ fontSize: 21, color: '#444', paddingLeft: 24 }}>No recent activity yet.</span>
+          <span style={{ fontSize: 42, fontFamily: 'var(--font-barlow)', fontWeight: 700, color: '#888888', paddingLeft: 24 }}>No recent activity yet.</span>
         )}
       </div>
     </div>
@@ -276,7 +271,7 @@ function ColCard({ item, cardIndex }: { item: ColItem; cardIndex: number }) {
 
 function SplashPanel({ imageIndex }: { imageIndex: 0 | 1 | 2 }) {
   const splashImages = [
-    { src: '/scroll-logo.png',        alt: 'SPARK Quest',             filter: 'drop-shadow(0 0 40px rgba(124,58,237,0.5))' },
+    { src: '/scroll-logo.png',        alt: 'SPARK Quest' },
     { src: '/scroll-motivational.png', alt: 'Motivational message' },
     { src: '/scroll-qr.png',          alt: 'QR code to join' },
   ]
@@ -287,10 +282,10 @@ function SplashPanel({ imageIndex }: { imageIndex: 0 | 1 | 2 }) {
       <img
         src={img.src}
         alt={img.alt}
-        style={{ maxWidth: isQr ? 420 : '100%', maxHeight: SPLASH_EACH_H - 48, objectFit: 'contain', filter: img.filter, ...(isQr ? { background: '#fff', borderRadius: 20, padding: 16 } : {}) }}
+        style={{ maxWidth: isQr ? 420 : '100%', maxHeight: SPLASH_EACH_H - 48, objectFit: 'contain', ...(isQr ? { background: '#fff', borderRadius: 20, padding: 16, border: '2px solid #dddddd' } : {}) }}
       />
       {isQr && (
-        <p style={{ fontSize: 20, color: '#A78BFA', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em' }}>Scan to join</p>
+        <p style={{ fontSize: 20, color: '#3399cc', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em' }}>Scan to join</p>
       )}
     </div>
   )
@@ -301,52 +296,66 @@ function SplashPanel({ imageIndex }: { imageIndex: 0 | 1 | 2 }) {
 function KidCard({ kid, cardIndex }: { kid: ScrollKid; cardIndex: number }) {
   const kp = { body: kid.body_points ?? 0, brain: kid.brain_points ?? 0, heart: kid.heart_points ?? 0, hands: kid.hands_points ?? 0, team: kid.team_points ?? 0 }
   const hasGoal = !!kid.long_term_goal
-  // Stagger the glow animation so cards pulse at different times
-  const glowDuration  = 3 + (cardIndex % 5)        // 3–7 s period
-  const glowDelay     = -((cardIndex * 1.1) % 8)   // phase offset
+  const glowDuration  = 3 + (cardIndex % 5)
+  const glowDelay     = -((cardIndex * 1.1) % 8)
 
   return (
     <div style={{
-      background: '#1A1A1A',
-      border: '1px solid #2A2A2A',
+      background: '#ffffff',
+      border: '1px solid #dddddd',
       borderRadius: 24,
-      padding: '32px 36px',
-      minHeight: 380,
+      padding: '28px 28px 24px',
+      minHeight: 480,
       display: 'flex',
       flexDirection: 'column',
-      gap: 20,
+      gap: 16,
       animation: `card-glow ${glowDuration}s ease-in-out infinite`,
       animationDelay: `${glowDelay}s`,
     }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 20 }}>
-        <Avatar avatarUrl={kid.avatar_url} handle={kid.name_handle} size="xl" />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 36, textTransform: 'uppercase', letterSpacing: '-0.01em', color: '#F5F5F5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {kid.name_handle}
-          </p>
-          <p style={{ fontSize: 22, color: '#777', marginTop: 4 }}>
-            <span style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 30, color: '#A78BFA' }}>{kid.total_points_earned}</span>
-            {' '}<span style={{ textTransform: 'uppercase', letterSpacing: '0.1em', fontSize: 18 }}>xp</span>
-          </p>
+      {/* Avatar — large, centered, fills ~35% of card height */}
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <div style={{ width: 160, height: 160, borderRadius: '50%', overflow: 'hidden', border: '4px solid #dddddd', flexShrink: 0, background: '#f4f4f4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {kid.avatar_url ? (
+            <img src={kid.avatar_url} alt={kid.name_handle} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <span style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 56, color: '#3399cc', textTransform: 'uppercase' }}>
+              {kid.name_handle.slice(0, 2)}
+            </span>
+          )}
         </div>
-        {hasGoal ? (
-          <div style={{ textAlign: 'right', flexShrink: 0, maxWidth: 220 }}>
-            <p style={{ fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#555', marginBottom: 4 }}>Goal</p>
-            <p style={{ fontSize: 20, color: '#A78BFA', fontWeight: 700, lineHeight: 1.2, textAlign: 'right' }}>{kid.long_term_goal!.title}</p>
-          </div>
-        ) : (
-          <p style={{ fontSize: 18, color: '#444', fontStyle: 'italic', flexShrink: 0 }}>Setting goals…</p>
-        )}
       </div>
+
+      {/* Name + XP */}
+      <div style={{ textAlign: 'center' }}>
+        <p style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 38, textTransform: 'uppercase', letterSpacing: '-0.01em', color: '#111111', lineHeight: 1, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {kid.name_handle}
+        </p>
+        <p style={{ fontSize: 20, color: '#666666', marginTop: 6 }}>
+          <span style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 32, color: '#3399cc' }}>{kid.total_points_earned}</span>
+          {' '}<span style={{ textTransform: 'uppercase', letterSpacing: '0.1em', fontSize: 16 }}>xp earned</span>
+        </p>
+      </div>
+
+      {/* Goal */}
+      {hasGoal ? (
+        <div style={{ textAlign: 'center', padding: '0 8px' }}>
+          <p style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#888888', marginBottom: 4 }}>Working toward</p>
+          <p style={{ fontSize: 18, color: '#3399cc', fontWeight: 700, lineHeight: 1.2 }}>{kid.long_term_goal!.title}</p>
+        </div>
+      ) : (
+        <p style={{ fontSize: 16, color: '#aaaaaa', fontStyle: 'italic', textAlign: 'center' }}>Setting goals…</p>
+      )}
+
+      {/* Progress bar */}
       <div style={{ marginTop: 'auto' }}>
         {hasGoal ? (
           <DomainProgressBar kidPoints={kp} totalEarned={kid.total_points_earned} targetCost={kid.long_term_goal!.cost} availablePoints={kid.available_points} height="lg" showLabel />
         ) : (
           <>
-            <div style={{ height: 20, borderRadius: 999, background: '#2C2C2A' }}>
-              <div style={{ height: '100%', borderRadius: 999, background: '#333', width: `${Math.min(100, (kid.total_points_earned / 200) * 100)}%` }} />
+            <div style={{ height: 20, borderRadius: 999, background: '#eeeeee' }}>
+              <div style={{ height: '100%', borderRadius: 999, background: '#cccccc', width: `${Math.min(100, (kid.total_points_earned / 200) * 100)}%` }} />
             </div>
-            <p style={{ fontSize: 18, color: '#444', marginTop: 8 }}>Choose your goal in the app</p>
+            <p style={{ fontSize: 16, color: '#aaaaaa', marginTop: 8, textAlign: 'center' }}>Choose your goal in the app</p>
           </>
         )}
       </div>
@@ -358,8 +367,8 @@ function KidCard({ kid, cardIndex }: { kid: ScrollKid; cardIndex: number }) {
 
 function QuestCard({ quest, cardIndex }: { quest: ScrollQuest; cardIndex: number }) {
   const domain   = quest.domain_tags[0] ?? 'team'
-  const accent   = DOMAIN_COLORS[domain] ?? '#8B5CF6'
-  const bg       = DOMAIN_BG[domain]    ?? '#160830'
+  const accent   = DOMAIN_COLORS[domain] ?? '#3399cc'
+  const bg       = DOMAIN_BG[domain]    ?? '#e6f4ff'
   const emoji    = DOMAIN_EMOJI[domain] ?? '⚡'
   const bobDelay = -((cardIndex * 0.7) % 3)
 
@@ -367,7 +376,7 @@ function QuestCard({ quest, cardIndex }: { quest: ScrollQuest; cardIndex: number
     <div style={{
       height: 280,
       background: bg,
-      border: `2px solid ${accent}44`,
+      border: `2px solid ${accent}66`,
       borderLeft: `6px solid ${accent}`,
       borderRadius: 24,
       padding: '28px 36px',
@@ -377,8 +386,7 @@ function QuestCard({ quest, cardIndex }: { quest: ScrollQuest; cardIndex: number
       position: 'relative',
       overflow: 'hidden',
     }}>
-      {/* Glow orb */}
-      <div style={{ position: 'absolute', top: -60, right: -60, width: 240, height: 240, borderRadius: '50%', background: accent, opacity: 0.07, pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', top: -60, right: -60, width: 240, height: 240, borderRadius: '50%', background: accent, opacity: 0.12, pointerEvents: 'none' }} />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <span style={{ fontSize: 28 }}>{emoji}</span>
@@ -394,7 +402,7 @@ function QuestCard({ quest, cardIndex }: { quest: ScrollQuest; cardIndex: number
         lineHeight: 1.05,
         textTransform: 'uppercase',
         letterSpacing: '-0.02em',
-        color: '#F5F5F5',
+        color: '#111111',
         margin: 0,
         flex: 1,
         display: 'flex',
@@ -404,7 +412,7 @@ function QuestCard({ quest, cardIndex }: { quest: ScrollQuest; cardIndex: number
       </h2>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <p style={{ fontSize: 16, color: '#666', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+        <p style={{ fontSize: 16, color: '#666666', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
           Complete with a SPARK mentor
         </p>
         <span style={{
@@ -428,8 +436,8 @@ function QuestCard({ quest, cardIndex }: { quest: ScrollQuest; cardIndex: number
 
 function RewardCard({ reward }: { reward: ScrollReward }) {
   const isDrop    = reward.type === 'drop'
-  const accent    = isDrop ? '#F0A020' : '#8B5CF6'
-  const dimAccent = isDrop ? '#2A1900' : '#1A0A32'
+  const accent    = isDrop ? '#ff9933' : '#3399cc'
+  const bgColor   = isDrop ? '#fff4e6' : '#e6f4ff'
   const icon      = isDrop ? '🎁' : '🗺'
   const label     = isDrop ? 'Drop' : 'Group Adventure'
   const costLabel = isDrop ? `${reward.cost} pts` : `${reward.cost} pts / kid`
@@ -437,8 +445,8 @@ function RewardCard({ reward }: { reward: ScrollReward }) {
   return (
     <div style={{
       height: 560,
-      background: dimAccent,
-      border: `2px solid ${accent}33`,
+      background: bgColor,
+      border: `2px solid ${accent}66`,
       borderLeft: `6px solid ${accent}`,
       borderRadius: 24,
       padding: '40px 48px',
@@ -449,20 +457,20 @@ function RewardCard({ reward }: { reward: ScrollReward }) {
       position: 'relative',
       overflow: 'hidden',
     }}>
-      <div style={{ position: 'absolute', top: -80, right: -80, width: 320, height: 320, borderRadius: '50%', background: accent, opacity: 0.06, pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', top: -80, right: -80, width: 320, height: 320, borderRadius: '50%', background: accent, opacity: 0.1, pointerEvents: 'none' }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <span style={{ fontSize: 36 }}>{icon}</span>
         <span style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: accent }}>{label}</span>
       </div>
-      <h2 style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 64, lineHeight: 1, textTransform: 'uppercase', letterSpacing: '-0.02em', color: '#F5F5F5', margin: 0 }}>
+      <h2 style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 64, lineHeight: 1, textTransform: 'uppercase', letterSpacing: '-0.02em', color: '#111111', margin: 0 }}>
         {reward.title}
       </h2>
       {reward.description && (
-        <p style={{ fontSize: 26, color: '#AAAAAA', lineHeight: 1.4, maxWidth: '90%', margin: 0 }}>{reward.description}</p>
+        <p style={{ fontSize: 26, color: '#555555', lineHeight: 1.4, maxWidth: '90%', margin: 0 }}>{reward.description}</p>
       )}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 8 }}>
         <span style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 48, color: accent, lineHeight: 1 }}>{costLabel}</span>
-        <span style={{ fontSize: 18, color: '#666', textTransform: 'uppercase', letterSpacing: '0.15em' }}>
+        <span style={{ fontSize: 18, color: '#666666', textTransform: 'uppercase', letterSpacing: '0.15em' }}>
           {isDrop ? '— spend in the app' : '— contribute together'}
         </span>
       </div>
