@@ -29,8 +29,15 @@ Live at: https://spark-quest-theta.vercel.app/
 ## Design System
 - **Fonts:** Space Grotesk (body), Barlow Condensed (display/headings) via `next/font/google`
 - Barlow Condensed exposed as `--font-barlow` CSS variable and `.font-barlow` Tailwind utility
-- **Aesthetic:** "Supreme × Duolingo × Spider-Verse" — dark backgrounds, bold condensed ALL CAPS labels, vivid domain accent colors
-- Domain card backgrounds are dark tinted (e.g. `#2A1208` for body) with vivid left-border accents
+- **Aesthetic:** White background, bold condensed ALL CAPS labels, vivid SPARK brand accent colors
+- **Color palette** (defined in `app/globals.css` `@theme inline {}`):
+  - `--color-bg: #ffffff`, `--color-surface: #f4f4f4`, `--color-border: #dddddd`
+  - `--color-accent: #3399cc` (blue), `--color-accent-light: #1a7aaa`, `--color-accent-dark: #0d5a80`
+  - `--color-text: #111111`, `--color-muted: #666666`, `--color-grit: #cc3333`
+  - Brand colors: Blue `#3399cc`, Yellow `#ffcc33`, Orange `#ff9933`, Red `#cc3333`, Purple `#993399`, Green `#33cc00`
+- **Button contrast:** Primary button uses `text-[--color-text]` (black on blue = 6.4:1), switches to `text-white` on hover (white on dark blue = passes). `text-white` directly on `--color-accent` blue fails WCAG AA (3:1) — don't do it.
+- **PinEntry keypad:** Uses `bg-[#e8e8e8] border border-[#bbbbbb]` for keypad buttons — the Tailwind surface color (#f4f4f4) is nearly invisible on white; always use explicit hex grays here.
+- Domain card tint colors defined in `lib/types.ts` as `DOMAIN_CARD_COLORS` (light tints) with `DOMAIN_TEXT_COLORS` all `#111111`
 
 ## Domain System
 Five domains: `body` (terracotta), `brain` (amber), `heart` (mauve/lavender), `hands` (mint), `team` (violet).
@@ -78,17 +85,17 @@ Kids can set a short-term goal and a long-term goal — each points at either a 
 
 ## TV Scroll Display (`/scroll`)
 Landscape ambient display for the program TV — no auth, no nav, auto-scrolling infinite loop.
-- Fetches via `GET /api/scroll` — returns kids (A–Z), recent completions, featured adventure progress, active rewards
+- Fetches via `GET /api/scroll` — returns kids (A–Z), recent completions, featured adventure progress, active rewards; includes `daily_points_today` per kid (CT timezone)
 - Content order: 3 full-width splash image panels → groups of 8 kids (2 rows of 4) → reward highlight card → repeat
 - **Splash panels:** 3 separate 800px-tall full-width sections, each showing one image vertically centered
   - `public/scroll-logo.png` — SPARK Quest graffiti logo (purple glow)
   - `public/scroll-motivational.png` — motivational text, fills full width
   - `public/scroll-qr.png` — QR code to join, white background, "Scan to join" label
-- **Reward highlight cards:** full-width, 560px tall, amber (drops) or violet (adventures); shown every 8 kids, cycles through active rewards
-- **Speed:** `TARGET_SPEED = 46 px/s` — scroll duration auto-calculated from content height
-- **Seamless loop:** content list doubled with `-b` uid suffix on second copy; animation runs `-50%` translateY
-- **Ticker:** bottom bar scrolling recent quest completions
-- Kid cards show avatar (or initials), name, XP, domain progress bar toward long-term goal
+- **Reward highlight cards:** full-width, 560px tall, amber (drops) or violet (adventures); shown every 8 kids, cycles through active rewards; full-bleed image when `image_url` is set
+- **Speed:** two-column parallax — left column `46 px/s`, right column `38 px/s`; seamless loop via doubled content with `-b` uid suffix
+- **Ticker:** 110px tall, 46px Barlow Condensed bold — scrolling recent quest completions
+- **Kid cards:** blue background (`#e6f4ff`), blue border (`2px solid #3399cc`), 170px centered avatar; kids with `daily_points_today > 0` get a pulsing yellow glow (`yellow-pulse` keyframe in globals.css)
+- **Quest/Reward cards with images:** full-bleed image background with dark gradient overlay for text legibility
 - `show_avatar_in_scroll = false` → avatar_url masked to null in API, Avatar component shows initials instead
 
 ## Routes
@@ -122,10 +129,11 @@ Landscape ambient display for the program TV — no auth, no nav, auto-scrolling
 - `POST /api/rewards/redeem` — deduct points via `redeem_reward` RPC, auto-clears matching goal slot
 - `POST /api/avatar/generate` — AI sticker avatar via Replicate; accepts `gender`, `vibe`; returns `avatar_url`, `generation_count`, `previous_avatar_url`; 403 if 10-generation limit reached
 - `POST /api/avatar/upload` — save device photo directly (no AI, no count increment)
+- `POST /api/admin/upload-card-image` — upload image for a quest/drop/adventure; body: `{ type, id, imageBase64 }`; stores to `card-images/{type}/{id}.webp` in Supabase Storage, updates `image_url` in DB
 - All `/api/admin/*` routes require `x-admin-token` header
 
 ## Database
-Migrations in `supabase/migrations/` — run in order: 001–007, 009, 013, 014. (008 is optional sample data.)
+Migrations in `supabase/migrations/` — run in order: 001–007, 009, 013, 014, 016. (008 is optional sample data.)
 Key tables: `kids`, `quests`, `quest_completions`, `drops`, `adventures`, `redemptions`, `staff_config`
 
 Key `kids` columns added post-initial-schema:
@@ -134,7 +142,17 @@ Key `kids` columns added post-initial-schema:
 - `avatar_generation_count integer DEFAULT 0` — lifetime AI generation count (migration 014)
 - `show_avatar_in_scroll boolean DEFAULT true` — scroll visibility toggle (migration 014)
 
+Key columns added to `quests`, `drops`, `adventures` (migration 016):
+- `image_url text` — optional card image; displayed full-bleed on TV scroll; uploaded via admin edit forms
+
+## Card Images
+- Admin can upload an image when editing an existing quest, drop, or adventure (not on create — ID required for storage path)
+- Upload UI in `/admin/quests` and `/admin/rewards` — shows thumbnail preview; `🖼` indicator in list when image exists
+- Images stored in Supabase Storage bucket `card-images` (must be created as Public)
+- Path pattern: `card-images/{quest|drop|adventure}/{id}.webp`
+
 ## Supabase Gotchas
 - After creating or replacing Postgres functions, run `NOTIFY pgrst, 'reload schema';` in the SQL editor if RPCs return PGRST202 errors.
 - Realtime must be enabled per-table in Dashboard > Database > Replication (not via SQL).
 - Storage bucket `avatars` must be created manually and set to Public.
+- Storage bucket `card-images` must be created manually and set to Public (for quest/reward card images).
