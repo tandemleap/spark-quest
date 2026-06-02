@@ -34,6 +34,7 @@ export default function AdminQuestsPage() {
   const [staffFilter, setStaffFilter] = useState('all')
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [imageUploading, setImageUploading] = useState(false)
+  const [imageError, setImageError] = useState<string | null>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
 
   function getToken() { return sessionStorage.getItem('spark_admin_token') ?? '' }
@@ -48,6 +49,7 @@ export default function AdminQuestsPage() {
     setEditingQuest(null)
     setForm(DEFAULT_FORM)
     setImageUrl(null)
+    setImageError(null)
     setShowForm(true)
   }
 
@@ -130,6 +132,7 @@ export default function AdminQuestsPage() {
   async function handleImagePick(file: File) {
     if (!editingQuest) return
     setImageUploading(true)
+    setImageError(null)
     const reader = new FileReader()
     reader.onload = async (e) => {
       const base64 = e.target?.result as string
@@ -142,9 +145,14 @@ export default function AdminQuestsPage() {
       if (res.ok) {
         const { image_url } = await res.json()
         setImageUrl(image_url)
+        setImageError(null)
         setQuests(prev => prev.map(q => q.id === editingQuest.id ? { ...q, image_url } : q))
+      } else {
+        const body = await res.json().catch(() => ({}))
+        setImageError(body.error ?? `Upload failed (${res.status})`)
       }
     }
+    reader.onerror = () => { setImageUploading(false); setImageError('Could not read file') }
     reader.readAsDataURL(file)
   }
 
@@ -255,6 +263,9 @@ export default function AdminQuestsPage() {
                       {imageUploading ? 'Uploading…' : imageUrl ? 'Change image' : 'Upload image'}
                     </button>
                   </div>
+                  {imageError && (
+                    <p className="text-red-500 text-xs mt-2">⚠️ {imageError}</p>
+                  )}
                 </div>
               ) : (
                 <p className="text-xs text-[--color-muted] bg-[--color-bg] border border-[--color-border] rounded-xl px-3 py-2">

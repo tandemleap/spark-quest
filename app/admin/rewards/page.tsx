@@ -49,6 +49,7 @@ export default function AdminRewardsPage() {
   const [featuring, setFeaturing] = useState<string | null>(null)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [imageUploading, setImageUploading] = useState(false)
+  const [imageError, setImageError] = useState<string | null>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
 
   function getToken() { return sessionStorage.getItem('spark_admin_token') ?? '' }
@@ -100,6 +101,7 @@ export default function AdminRewardsPage() {
   async function handleImagePick(file: File) {
     if (!editingId) return
     setImageUploading(true)
+    setImageError(null)
     const entity_type = tab === 'drops' ? 'drop' : 'adventure'
     const reader = new FileReader()
     reader.onload = async (e) => {
@@ -113,10 +115,15 @@ export default function AdminRewardsPage() {
       if (res.ok) {
         const { image_url } = await res.json()
         setImageUrl(image_url)
+        setImageError(null)
         if (tab === 'drops') setDrops(prev => prev.map(d => d.id === editingId ? { ...d, image_url } : d))
         else setAdventures(prev => prev.map(a => a.id === editingId ? { ...a, image_url } : a))
+      } else {
+        const body = await res.json().catch(() => ({}))
+        setImageError(body.error ?? `Upload failed (${res.status})`)
       }
     }
+    reader.onerror = () => { setImageUploading(false); setImageError('Could not read file') }
     reader.readAsDataURL(file)
   }
 
@@ -404,6 +411,9 @@ export default function AdminRewardsPage() {
                       {imageUploading ? 'Uploading…' : imageUrl ? 'Change image' : 'Upload image'}
                     </button>
                   </div>
+                  {imageError && (
+                    <p className="text-red-500 text-xs mt-2">⚠️ {imageError}</p>
+                  )}
                 </div>
               ) : (
                 <p className="text-xs text-[--color-muted] bg-[--color-bg] border border-[--color-border] rounded-xl px-3 py-2">
