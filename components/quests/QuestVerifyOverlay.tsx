@@ -145,7 +145,7 @@ export function QuestVerifyOverlay({ quest, onClose, onSuccess, dailyPointsToday
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="max-w-[430px] mx-auto w-full bg-[--color-bg] rounded-t-3xl px-6 pt-6 pb-10 animate-slide-up">
+      <div className="max-w-[430px] mx-auto w-full rounded-t-3xl px-6 pt-6 pb-10 animate-slide-up" style={{ background: '#ffffff' }}>
 
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-lg font-bold text-[--color-text]">{heading[state]}</h2>

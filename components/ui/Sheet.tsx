@@ -30,8 +30,8 @@ export function Sheet({ open, onClose, children, title }: SheetProps) {
       />
 
       {/* Panel */}
-      <div className="relative max-w-[430px] mx-auto w-full bg-[--color-surface] rounded-t-3xl shadow-2xl animate-slide-up"
-        style={{ maxHeight: '90svh', overflowY: 'auto' }}>
+      <div className="relative max-w-[430px] mx-auto w-full rounded-t-3xl shadow-2xl animate-slide-up"
+        style={{ maxHeight: '90svh', overflowY: 'auto', background: '#ffffff' }}>
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full bg-[--color-border]" />
