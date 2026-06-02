@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs'
 import { getServiceSupabase } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
-  const { kid_id, quest_id, passcode, staff_initials, check_pin_only, powerup_claimed } = await request.json()
+  const { kid_id, quest_id, passcode, staff_initials, check_pin_only, powerup_claimed, score_value } = await request.json()
 
   if (!kid_id || !quest_id || !passcode) {
     return NextResponse.json({ error: 'kid_id, quest_id, and passcode required' }, { status: 400 })
@@ -41,7 +41,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Quest not found' }, { status: 404 })
   }
 
-  if (!quest.repeatable) {
+  const isRecordChase = quest.quest_type === 'record_chase'
+
+  if (!quest.repeatable && !isRecordChase) {
     const { data: existing } = await supabase
       .from('quest_completions')
       .select('id')
@@ -54,12 +56,24 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // For record chase: use record_set_points on first attempt, full point_value on subsequent
+  let pointsToAward = quest.point_value
+  if (isRecordChase) {
+    const { count } = await supabase
+      .from('quest_completions')
+      .select('id', { count: 'exact', head: true })
+      .eq('kid_id', kid_id)
+      .eq('quest_id', quest_id)
+    pointsToAward = (count ?? 0) === 0 ? (quest.record_set_points ?? 0) : quest.point_value
+  }
+
   const { data: actualPoints, error: rpcError } = await supabase.rpc('award_quest_points', {
     p_kid_id: kid_id,
     p_quest_id: quest_id,
-    p_points: quest.point_value,
+    p_points: pointsToAward,
     p_initials: staff_initials || '',
     p_powerup_claimed: !!powerup_claimed,
+    p_score_value: score_value ?? null,
   })
 
   if (rpcError) {

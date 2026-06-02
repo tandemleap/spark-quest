@@ -88,6 +88,10 @@ export interface Quest {
   created_by: string | null
   created_at: string
   image_url: string | null
+  quest_type: 'standard' | 'record_chase'
+  score_unit: string | null
+  score_direction: 'higher' | 'lower'
+  record_set_points: number
 }
 
 export interface QuestCompletion {
@@ -98,6 +102,7 @@ export interface QuestCompletion {
   verified_by_initials: string | null
   points_awarded: number
   powerup_claimed: boolean
+  score_value: number | null
 }
 
 export interface Drop {

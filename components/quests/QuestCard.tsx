@@ -41,7 +41,11 @@ export function QuestCard({ quest, onClick, style }: QuestCardProps) {
                 🔥 Grit
               </span>
             )}
-            {quest.repeatable && (
+            {quest.quest_type === 'record_chase' ? (
+              <span className="text-[10px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-sm" style={{ background: '#3399cc22', color: '#3399cc' }}>
+                📊 Record Chase
+              </span>
+            ) : quest.repeatable && (
               <span className="text-[10px] font-semibold text-[--color-muted] uppercase tracking-wide">↻ repeat</span>
             )}
             {quest.expires_at && (

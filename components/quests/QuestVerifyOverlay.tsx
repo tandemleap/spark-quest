@@ -7,6 +7,11 @@ import { fireConfetti } from '@/components/ui/ConfettiLayer'
 import { showPointsToast } from '@/components/ui/PointsToast'
 import type { Quest } from '@/lib/types'
 
+interface PersonalBest {
+  best_score: number | null
+  attempts: number
+}
+
 // Delay in ms between API success and celebration firing —
 // gives staff time to hand the phone back to the kid.
 const HANDOFF_DELAY = 2800
@@ -20,7 +25,7 @@ interface QuestVerifyOverlayProps {
   dailyPointsToday?: number
 }
 
-type OverlayState = 'pin' | 'initials' | 'powerup' | 'handoff' | 'success' | 'already_done' | 'daily_limit'
+type OverlayState = 'score' | 'pin' | 'initials' | 'powerup' | 'handoff' | 'success' | 'already_done' | 'daily_limit'
 
 function playSound(path: string) {
   try {
@@ -31,7 +36,8 @@ function playSound(path: string) {
 }
 
 export function QuestVerifyOverlay({ quest, onClose, onSuccess, dailyPointsToday = 0 }: QuestVerifyOverlayProps) {
-  const [state, setState] = useState<OverlayState>('pin')
+  const isRecordChase = quest.quest_type === 'record_chase'
+  const [state, setState] = useState<OverlayState>(isRecordChase ? 'score' : 'pin')
   const [pinStatus, setPinStatus] = useState<'idle' | 'checking' | 'success' | 'error'>('idle')
   const [verifiedPin, setVerifiedPin] = useState('')
   const [initials, setInitials] = useState('')
@@ -41,6 +47,32 @@ export function QuestVerifyOverlay({ quest, onClose, onSuccess, dailyPointsToday
   const [powerupClaimed, setPowerupClaimed] = useState(false)
   const [countdown, setCountdown] = useState(3)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Record chase state
+  const [personalBest, setPersonalBest] = useState<PersonalBest | null>(null)
+  const [scoreInput, setScoreInput] = useState('')
+  const [newRecord, setNewRecord] = useState<boolean | null>(null)
+
+  // Fetch personal best for record chase quests
+  useEffect(() => {
+    if (!isRecordChase) return
+    const kidId = localStorage.getItem('spark_kid_id')
+    if (!kidId) return
+    fetch(`/api/quests/record?kid_id=${kidId}&quest_id=${quest.id}`)
+      .then(r => r.json())
+      .then(data => setPersonalBest(data))
+  }, [isRecordChase, quest.id])
+
+  // Live record comparison as score is typed
+  useEffect(() => {
+    if (!isRecordChase || !scoreInput || personalBest?.best_score == null) {
+      setNewRecord(null)
+      return
+    }
+    const val = parseFloat(scoreInput)
+    if (isNaN(val)) { setNewRecord(null); return }
+    setNewRecord(quest.score_direction === 'lower' ? val < personalBest.best_score : val > personalBest.best_score)
+  }, [scoreInput, personalBest, isRecordChase, quest.score_direction])
 
   // Countdown tick during handoff state
   useEffect(() => {
@@ -78,6 +110,7 @@ export function QuestVerifyOverlay({ quest, onClose, onSuccess, dailyPointsToday
     setVerifying(true)
     setPowerupClaimed(claimed)
     const kidId = localStorage.getItem('spark_kid_id')
+    const scoreVal = isRecordChase && scoreInput ? parseFloat(scoreInput) : undefined
     const res = await fetch('/api/quests/complete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -87,6 +120,7 @@ export function QuestVerifyOverlay({ quest, onClose, onSuccess, dailyPointsToday
         passcode: verifiedPin,
         staff_initials: initials.trim().toUpperCase(),
         powerup_claimed: claimed,
+        score_value: scoreVal,
       }),
     })
     setVerifying(false)
@@ -133,12 +167,15 @@ export function QuestVerifyOverlay({ quest, onClose, onSuccess, dailyPointsToday
   const expectedPoints = quest.point_value + (powerupClaimed && quest.grit_powerup_points ? quest.grit_powerup_points : 0)
   const wasCapped = totalPointsAwarded > 0 && totalPointsAwarded < expectedPoints
 
+  const isFirstAttempt = isRecordChase && (personalBest?.best_score == null)
+
   const heading: Record<OverlayState, string> = {
+    score:        isFirstAttempt ? 'Set Your Record 🎯' : 'Beat Your Record 📊',
     pin:          'Staff Verification',
     initials:     'Staff Initials',
     powerup:      'Bonus Challenge 🔥',
     handoff:      'Verified! ✓',
-    success:      'Quest Complete! 🎉',
+    success:      isFirstAttempt ? 'Record Set! 🎯' : 'Quest Complete! 🎉',
     already_done: 'Already Done',
     daily_limit:  'Daily Limit Reached',
   }
@@ -155,6 +192,71 @@ export function QuestVerifyOverlay({ quest, onClose, onSuccess, dailyPointsToday
             </button>
           )}
         </div>
+
+        {state === 'score' && (
+          <div className="flex flex-col gap-5">
+            {/* Current personal best */}
+            {personalBest === null ? (
+              <p className="text-[--color-muted] text-sm text-center">Loading…</p>
+            ) : isFirstAttempt ? (
+              <div className="rounded-2xl px-4 py-3 text-center border border-[--color-border]" style={{ background: '#f4f4f4' }}>
+                <p className="text-2xl mb-1">🎯</p>
+                <p className="text-[--color-text] font-semibold text-sm">First attempt!</p>
+                <p className="text-[--color-muted] text-xs mt-0.5">Enter your score to set your personal record.</p>
+              </div>
+            ) : (
+              <div className="rounded-2xl px-4 py-3 text-center border-2" style={{ borderColor: '#3399cc', background: '#e6f4ff' }}>
+                <p className="text-xs font-bold uppercase tracking-widest text-[#3399cc] mb-1">Current Record</p>
+                <p className="font-barlow font-black text-4xl text-[--color-text]">
+                  {personalBest.best_score}
+                  <span className="text-lg font-semibold ml-1 text-[--color-muted]">{quest.score_unit}</span>
+                </p>
+                <p className="text-xs text-[--color-muted] mt-0.5">
+                  {quest.score_direction === 'lower' ? 'Lower is better' : 'Higher is better'} · {personalBest.attempts} attempt{personalBest.attempts !== 1 ? 's' : ''}
+                </p>
+              </div>
+            )}
+
+            {/* New score input */}
+            <div>
+              <label className="text-xs text-[--color-muted] uppercase tracking-widest font-semibold block mb-2">
+                {isFirstAttempt ? 'Your score' : 'New score'}
+                {quest.score_unit && <span className="ml-1 normal-case">({quest.score_unit})</span>}
+              </label>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={scoreInput}
+                onChange={e => setScoreInput(e.target.value)}
+                placeholder="0"
+                autoFocus
+                className="w-full rounded-2xl px-5 py-4 text-center text-3xl font-black text-[--color-text] focus:outline-none border-2"
+                style={{
+                  background: '#f4f4f4',
+                  borderColor: newRecord === true ? '#33cc00' : newRecord === false ? '#cc3333' : '#dddddd',
+                }}
+              />
+              {/* Live record comparison */}
+              {!isFirstAttempt && scoreInput && (
+                <p className={`text-sm font-semibold text-center mt-2 ${newRecord === true ? 'text-green-600' : newRecord === false ? 'text-red-500' : 'text-[--color-muted]'}`}>
+                  {newRecord === true
+                    ? `🏆 New record! ${personalBest?.best_score} → ${scoreInput} ${quest.score_unit ?? ''}`
+                    : newRecord === false
+                    ? `Doesn't beat ${personalBest?.best_score} ${quest.score_unit ?? ''}`
+                    : ''}
+                </p>
+              )}
+            </div>
+
+            <Button
+              size="lg"
+              disabled={!scoreInput.trim()}
+              onClick={() => setState('pin')}
+            >
+              Next — Staff Verify →
+            </Button>
+          </div>
+        )}
 
         {state === 'pin' && (
           <>
@@ -237,27 +339,37 @@ export function QuestVerifyOverlay({ quest, onClose, onSuccess, dailyPointsToday
 
         {state === 'success' && (
           <div className="flex flex-col items-center gap-4 py-4">
-            <div className="text-6xl animate-pop-in">⚡</div>
+            <div className="text-6xl animate-pop-in">{isFirstAttempt ? '🎯' : '⚡'}</div>
             <div className="text-center">
-              <p className="text-4xl font-black text-[--color-accent-light]">+{totalPointsAwarded} pts</p>
-              {wasCapped ? (
-                <p className="text-amber-400 text-sm mt-1 font-semibold">
-                  Daily cap hit — you had {totalPointsAwarded} pts left today
-                </p>
+              {isFirstAttempt ? (
+                <>
+                  <p className="text-2xl font-black text-[--color-text]">
+                    {scoreInput} {quest.score_unit}
+                  </p>
+                  <p className="text-[--color-muted] mt-1 text-sm">Record set! Come back tomorrow and beat it to earn</p>
+                  <p className="font-bold text-[--color-accent] text-lg mt-0.5">+{quest.point_value} pts</p>
+                </>
               ) : (
-                <p className="text-[--color-muted] mt-1">
-                  {powerupClaimed ? 'Quest + Power-Up complete! 🔥' : 'Quest complete! Keep it up.'}
-                </p>
+                <>
+                  <p className="text-4xl font-black text-[--color-accent]">+{totalPointsAwarded} pts</p>
+                  {scoreInput && newRecord && (
+                    <p className="text-green-600 font-bold text-base mt-1">
+                      🏆 {personalBest?.best_score} → {scoreInput} {quest.score_unit}
+                    </p>
+                  )}
+                  {wasCapped ? (
+                    <p className="text-amber-400 text-sm mt-1 font-semibold">Daily cap hit — had {totalPointsAwarded} pts left</p>
+                  ) : (
+                    <p className="text-[--color-muted] mt-1 text-sm">Keep pushing your record!</p>
+                  )}
+                </>
               )}
-              {dailyRemaining === 0 ? (
-                <p className="text-red-400 text-xs mt-2 font-semibold uppercase tracking-wide">
-                  🚫 40/40 pts — daily limit reached
-                </p>
-              ) : dailyRemaining <= 10 ? (
-                <p className="text-amber-400 text-xs mt-2">
-                  ⚠️ {dailyRemaining} pt{dailyRemaining === 1 ? '' : 's'} left for today
-                </p>
-              ) : null}
+              {!isFirstAttempt && dailyRemaining === 0 && (
+                <p className="text-red-400 text-xs mt-2 font-semibold uppercase tracking-wide">🚫 40/40 pts — daily limit reached</p>
+              )}
+              {!isFirstAttempt && dailyRemaining > 0 && dailyRemaining <= 10 && (
+                <p className="text-amber-400 text-xs mt-2">⚠️ {dailyRemaining} pt{dailyRemaining === 1 ? '' : 's'} left today</p>
+              )}
             </div>
             <Button size="lg" onClick={onClose} className="mt-2 w-full">Back to Quests</Button>
           </div>

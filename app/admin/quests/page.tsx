@@ -17,6 +17,10 @@ const DEFAULT_FORM = {
   grit_powerup_points: '' as string | number,
   expires_at: '',
   created_by: '',
+  quest_type: 'standard' as 'standard' | 'record_chase',
+  score_unit: '',
+  score_direction: 'higher' as 'higher' | 'lower',
+  record_set_points: '' as string | number,
 }
 
 export default function AdminQuestsPage() {
@@ -61,6 +65,10 @@ export default function AdminQuestsPage() {
       grit_powerup_points: q.grit_powerup_points ?? '',
       expires_at: q.expires_at ? q.expires_at.slice(0, 10) : '',
       created_by: q.created_by ?? '',
+      quest_type: q.quest_type ?? 'standard',
+      score_unit: q.score_unit ?? '',
+      score_direction: q.score_direction ?? 'higher',
+      record_set_points: q.record_set_points ?? '',
     })
     setShowForm(true)
   }
@@ -77,17 +85,22 @@ export default function AdminQuestsPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setSaving(true)
+    const isRecordChase = form.quest_type === 'record_chase'
     const payload = {
       title: form.title,
       description: form.description || null,
       domain_tags: form.domain_tags,
       point_value: form.point_value,
-      repeatable: form.repeatable,
+      repeatable: isRecordChase ? true : form.repeatable,
       is_grit_quest: form.is_grit_quest,
       grit_powerup_description: form.is_grit_quest ? (form.grit_powerup_description || null) : null,
       grit_powerup_points: form.is_grit_quest && form.grit_powerup_points ? Number(form.grit_powerup_points) : null,
       expires_at: form.expires_at ? new Date(form.expires_at).toISOString() : null,
       created_by: form.created_by.trim() || null,
+      quest_type: form.quest_type,
+      score_unit: isRecordChase ? (form.score_unit.trim() || null) : null,
+      score_direction: isRecordChase ? form.score_direction : 'higher',
+      record_set_points: isRecordChase && form.record_set_points !== '' ? Number(form.record_set_points) : 0,
       ...(editingQuest ? { id: editingQuest.id } : {}),
     }
     const res = await fetch('/api/admin/quests', {
@@ -187,12 +200,13 @@ export default function AdminQuestsPage() {
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <p className="font-semibold text-[--color-text] truncate">{q.title}</p>
                     {q.is_grit_quest && <span className="text-xs">🔥</span>}
+                    {q.quest_type === 'record_chase' && <span className="text-xs">📊</span>}
                     {q.image_url && <span className="text-xs text-[--color-muted]">🖼</span>}
                   </div>
                   <p className="text-xs text-[--color-muted]">
                     {(q.domain_tags ?? []).map(d => `${DOMAIN_EMOJIS[d]} ${DOMAIN_LABELS[d]}`).join(' · ') || 'No domain'}
                     {' · '}{q.point_value} pts
-                    {q.repeatable ? ' · repeatable' : ''}
+                    {q.quest_type === 'record_chase' ? ` · ${q.score_unit ?? 'score'} (${q.score_direction ?? 'higher'})` : q.repeatable ? ' · repeatable' : ''}
                     {q.created_by ? ` · ${q.created_by}` : ''}
                   </p>
                 </div>
@@ -273,14 +287,77 @@ export default function AdminQuestsPage() {
                 </div>
               </div>
 
-              <AInput label="Points" type="number" value={String(form.point_value)} onChange={v => setForm(f => ({ ...f, point_value: Number(v) }))} required />
+              <AInput label="Points (awarded for beating the record, or for any completion if standard)" type="number" value={String(form.point_value)} onChange={v => setForm(f => ({ ...f, point_value: Number(v) }))} required />
               <AInput label="Posted by (staff name)" value={form.created_by} onChange={v => setForm(f => ({ ...f, created_by: v }))} />
               <AInput label="Expires (optional)" type="date" value={form.expires_at} onChange={v => setForm(f => ({ ...f, expires_at: v }))} />
 
-              <label className="flex items-center gap-2 text-sm text-[--color-text] cursor-pointer">
-                <input type="checkbox" checked={form.repeatable} onChange={e => setForm(f => ({ ...f, repeatable: e.target.checked }))} className="accent-[--color-accent]" />
-                Repeatable
-              </label>
+              {/* Quest type */}
+              <div>
+                <label className="text-xs text-[--color-muted] mb-2 block">Quest Type</label>
+                <div className="flex gap-2">
+                  {(['standard', 'record_chase'] as const).map(type => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, quest_type: type }))}
+                      className="flex-1 py-2 rounded-xl text-sm font-semibold border-2 transition-colors"
+                      style={form.quest_type === type
+                        ? { background: 'var(--color-accent)', borderColor: 'var(--color-accent)', color: '#fff' }
+                        : { background: 'var(--color-bg)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }
+                      }
+                    >
+                      {type === 'standard' ? '⚡ Standard' : '📊 Record Chase'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Record chase config */}
+              {form.quest_type === 'record_chase' && (
+                <div className="border border-[--color-border] rounded-2xl p-4 flex flex-col gap-3" style={{ background: '#e6f4ff' }}>
+                  <p className="text-xs font-bold uppercase tracking-widest text-[#3399cc]">Record Chase Settings</p>
+                  <AInput
+                    label="Score unit (e.g. jumps, seconds, meters)"
+                    value={form.score_unit}
+                    onChange={v => setForm(f => ({ ...f, score_unit: v }))}
+                  />
+                  <div>
+                    <label className="text-xs text-[--color-muted] mb-2 block">Direction (what counts as better?)</label>
+                    <div className="flex gap-2">
+                      {(['higher', 'lower'] as const).map(dir => (
+                        <button
+                          key={dir}
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, score_direction: dir }))}
+                          className="flex-1 py-2 rounded-xl text-sm font-semibold border-2 transition-colors"
+                          style={form.score_direction === dir
+                            ? { background: '#3399cc', borderColor: '#3399cc', color: '#fff' }
+                            : { background: 'var(--color-bg)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }
+                          }
+                        >
+                          {dir === 'higher' ? '↑ Higher is better' : '↓ Lower is better'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <AInput
+                    label="Points for setting initial record (usually 0 or 5)"
+                    type="number"
+                    value={String(form.record_set_points)}
+                    onChange={v => setForm(f => ({ ...f, record_set_points: v }))}
+                  />
+                  <p className="text-xs text-[#3399cc]">
+                    Record chase quests are always repeatable. Kids earn {form.point_value} pts each time they beat their personal best.
+                  </p>
+                </div>
+              )}
+
+              {form.quest_type === 'standard' && (
+                <label className="flex items-center gap-2 text-sm text-[--color-text] cursor-pointer">
+                  <input type="checkbox" checked={form.repeatable} onChange={e => setForm(f => ({ ...f, repeatable: e.target.checked }))} className="accent-[--color-accent]" />
+                  Repeatable
+                </label>
+              )}
 
               <label className="flex items-center gap-2 text-sm text-[--color-text] cursor-pointer">
                 <input type="checkbox" checked={form.is_grit_quest} onChange={e => setForm(f => ({ ...f, is_grit_quest: e.target.checked }))} className="accent-[--color-accent]" />

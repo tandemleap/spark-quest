@@ -23,8 +23,21 @@ export default function QuestsPage() {
   const [staffFilter, setStaffFilter] = useState<string>('all')
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null)
   const [verifyQuest, setVerifyQuest] = useState<Quest | null>(null)
+
+  function selectQuest(q: Quest) {
+    setSelectedQuest(q)
+    if (q.quest_type === 'record_chase' && !personalBests[q.id]) {
+      const kidId = localStorage.getItem('spark_kid_id')
+      if (kidId) {
+        fetch(`/api/quests/record?kid_id=${kidId}&quest_id=${q.id}`)
+          .then(r => r.json())
+          .then(data => setPersonalBests(prev => ({ ...prev, [q.id]: data })))
+      }
+    }
+  }
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set())
   const [dailyPointsToday, setDailyPointsToday] = useState(0)
+  const [personalBests, setPersonalBests] = useState<Record<string, { best_score: number | null; attempts: number }>>({})
 
   useEffect(() => {
     const kidId = localStorage.getItem('spark_kid_id')
@@ -149,7 +162,7 @@ export default function QuestsPage() {
                     <span className="text-white font-bold text-sm bg-black/50 px-3 py-1 rounded-full">✓ Done</span>
                   </div>
                 )}
-                <QuestCard quest={q} onClick={() => setSelectedQuest(q)} />
+                <QuestCard quest={q} onClick={() => selectQuest(q)} />
               </div>
             </div>
           ))}
@@ -192,6 +205,32 @@ export default function QuestsPage() {
                 </span>
               )}
             </div>
+
+            {/* Personal best for record chase quests */}
+            {selectedQuest.quest_type === 'record_chase' && (
+              <div className="rounded-2xl p-4 border-2" style={{ borderColor: '#3399cc', background: '#e6f4ff' }}>
+                <p className="text-xs font-bold uppercase tracking-widest text-[#3399cc] mb-2">📊 Record Chase</p>
+                {personalBests[selectedQuest.id] == null ? (
+                  <p className="text-[--color-muted] text-sm">Loading your record…</p>
+                ) : personalBests[selectedQuest.id]?.best_score == null ? (
+                  <div>
+                    <p className="text-[--color-text] font-semibold">No record yet</p>
+                    <p className="text-[--color-muted] text-xs mt-0.5">Complete this quest to set your first record. Then beat it each day to earn {selectedQuest.point_value} pts!</p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-[--color-text] text-sm mb-0.5">Your best</p>
+                    <p className="font-barlow font-black text-3xl text-[--color-text]">
+                      {personalBests[selectedQuest.id]?.best_score}
+                      <span className="text-base font-semibold ml-1 text-[--color-muted]">{selectedQuest.score_unit}</span>
+                    </p>
+                    <p className="text-[--color-muted] text-xs mt-1">
+                      {personalBests[selectedQuest.id]?.attempts} attempt{personalBests[selectedQuest.id]?.attempts !== 1 ? 's' : ''} · {selectedQuest.score_direction === 'lower' ? 'Lower is better' : 'Higher is better'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {selectedQuest.description ? (
               <p className="text-[--color-text] text-base leading-relaxed">{selectedQuest.description}</p>

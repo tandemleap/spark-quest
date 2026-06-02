@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
   const {
     title, description, domain_tags, point_value, repeatable,
     expires_at, created_by, is_grit_quest, grit_powerup_description, grit_powerup_points,
+    quest_type, score_unit, score_direction, record_set_points,
   } = body
 
   if (!title || !point_value) {
@@ -47,6 +48,10 @@ export async function POST(request: NextRequest) {
       is_grit_quest: !!is_grit_quest,
       grit_powerup_description: is_grit_quest ? (grit_powerup_description || null) : null,
       grit_powerup_points: is_grit_quest ? (grit_powerup_points || null) : null,
+      quest_type: quest_type ?? 'standard',
+      score_unit: score_unit || null,
+      score_direction: score_direction ?? 'higher',
+      record_set_points: record_set_points ?? 0,
     })
     .select()
     .single()
