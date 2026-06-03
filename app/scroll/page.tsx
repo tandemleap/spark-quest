@@ -132,16 +132,21 @@ export default function ScrollPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/scroll')
-      .then(r => r.json())
-      .then(({ kids: k, recentCompletions: c, adventureProgress: ap, rewards: rw, quests: qs }) => {
-        setKids(k)
-        setRewards(rw ?? [])
-        setQuests(qs ?? [])
-        setCompletions(c)
-        setAdventureProgress(ap)
-        setLoading(false)
-      })
+    function fetchAll() {
+      fetch('/api/scroll')
+        .then(r => r.json())
+        .then(({ kids: k, recentCompletions: c, adventureProgress: ap, rewards: rw, quests: qs }) => {
+          setKids(k)
+          setRewards(rw ?? [])
+          setQuests(qs ?? [])
+          setCompletions(c)
+          setAdventureProgress(ap)
+          setLoading(false)
+        })
+    }
+
+    fetchAll()
+    const refreshInterval = setInterval(fetchAll, 5 * 60 * 1000)
 
     const channel = supabase
       .channel('scroll-updates')
@@ -150,7 +155,10 @@ export default function ScrollPage() {
       })
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
+    return () => {
+      clearInterval(refreshInterval)
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   const leftKids  = useMemo(() => kids.filter((_, i) => i % 2 === 0), [kids])
