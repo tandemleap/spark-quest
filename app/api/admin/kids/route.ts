@@ -22,13 +22,14 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   if (!await auth(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { id, available_points, total_points_earned } = await request.json()
+  const { id, available_points, total_points_earned, name_handle } = await request.json()
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
   const supabase = getServiceSupabase()
-  const updates: Record<string, number> = {}
+  const updates: Record<string, number | string> = {}
   if (available_points !== undefined) updates.available_points = available_points
   if (total_points_earned !== undefined) updates.total_points_earned = total_points_earned
+  if (name_handle !== undefined) updates.name_handle = name_handle
 
   const { data, error } = await supabase
     .from('kids')
@@ -37,6 +38,24 @@ export async function PATCH(request: NextRequest) {
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    if (error.message.includes('unique') || error.code === '23505') {
+      return NextResponse.json({ error: 'That name is already taken' }, { status: 409 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
   return NextResponse.json(data)
+}
+
+export async function DELETE(request: NextRequest) {
+  if (!await auth(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { id } = await request.json()
+  if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
+
+  const supabase = getServiceSupabase()
+  const { error } = await supabase.from('kids').delete().eq('id', id)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ success: true })
 }
