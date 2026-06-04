@@ -140,7 +140,7 @@ export default function AdminKidsPage() {
 
       {editingKid && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center px-4">
-          <div className="bg-[--color-surface] rounded-3xl p-6 w-full max-w-sm">
+          <div className="rounded-3xl p-6 w-full max-w-sm" style={{ background: '#f4f4f4' }}>
 
             {modalState === 'edit' && (
               <>
