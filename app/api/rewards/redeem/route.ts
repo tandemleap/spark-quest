@@ -1,19 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server'
+import bcrypt from 'bcryptjs'
 import { getServiceSupabase } from '@/lib/supabase'
 import type { Domain, DomainRequirements } from '@/lib/types'
 
 export async function POST(request: NextRequest) {
-  const { kid_id, reward_type, reward_id, points } = await request.json()
+  const { kid_id, reward_type, reward_id, points, passcode } = await request.json()
 
   if (!kid_id || !reward_type || !reward_id || !points) {
     return NextResponse.json({ error: 'kid_id, reward_type, reward_id, and points required' }, { status: 400 })
+  }
+
+  if (!passcode) {
+    return NextResponse.json({ error: 'Staff passcode required' }, { status: 400 })
+  }
+
+  const supabase = getServiceSupabase()
+
+  const { data: config } = await supabase
+    .from('staff_config')
+    .select('passcode_hash')
+    .eq('id', 1)
+    .single()
+
+  if (!config) {
+    return NextResponse.json({ error: 'Staff config not found' }, { status: 500 })
+  }
+
+  const validPin = await bcrypt.compare(passcode, config.passcode_hash)
+  if (!validPin) {
+    return NextResponse.json({ error: 'Invalid passcode' }, { status: 401 })
   }
 
   if (!['drop', 'adventure'].includes(reward_type)) {
     return NextResponse.json({ error: 'reward_type must be drop or adventure' }, { status: 400 })
   }
 
-  const supabase = getServiceSupabase()
   const table = reward_type === 'adventure' ? 'adventures' : 'drops'
 
   // Fetch reward to get domain requirements

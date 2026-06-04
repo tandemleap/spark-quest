@@ -82,7 +82,7 @@ export default function RewardsPage() {
     })
   }, [kidId])
 
-  async function handleRedeem() {
+  async function handleRedeem(passcode: string) {
     if (!pending || !kidId || !kid) return
     const res = await fetch('/api/rewards/redeem', {
       method: 'POST',
@@ -92,8 +92,12 @@ export default function RewardsPage() {
         reward_type: pending.type,
         reward_id: pending.id,
         points: pending.cost,
+        passcode,
       }),
     })
+    if (res.status === 401) {
+      throw new Error('Invalid passcode')
+    }
     if (!res.ok) {
       const body = await res.json()
       alert(body.error || 'Something went wrong')
