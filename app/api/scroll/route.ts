@@ -99,9 +99,9 @@ export async function GET() {
 
   // Active rewards for highlight cards + active quests for challenge cards
   const [{ data: drops }, { data: adventures }, { data: questsData }] = await Promise.all([
-    supabase.from('drops').select('id, title, description, point_cost, image_url').eq('is_active', true).order('point_cost'),
+    supabase.from('drops').select('id, title, description, point_cost, image_url, quantity_available').eq('is_active', true).order('point_cost'),
     supabase.from('adventures').select('id, title, description, point_cost_per_kid, kids_threshold, image_url').eq('is_active', true).order('point_cost_per_kid'),
-    supabase.from('quests').select('id, title, domain_tags, point_value, is_grit_quest, image_url').eq('is_active', true).order('point_value', { ascending: false }).limit(8),
+    supabase.from('quests').select('id, title, domain_tags, point_value, is_grit_quest, image_url, is_featured').eq('is_active', true).eq('is_featured', true).order('point_value', { ascending: false }).limit(4),
   ])
 
   // Enrich each adventure with kids_working_toward and collective_progress_percent
@@ -123,6 +123,7 @@ export async function GET() {
       title: a.title,
       description: a.description,
       cost: a.point_cost_per_kid,
+      kids_threshold: a.kids_threshold,
       image_url: a.image_url ?? null,
       kids_working_toward: kidsWorkingToward,
       collective_progress_percent: collectiveProgressPercent,
@@ -130,7 +131,7 @@ export async function GET() {
   })
 
   const rewards = [
-    ...(drops ?? []).map(d => ({ id: d.id, type: 'drop' as const, title: d.title, description: d.description, cost: d.point_cost, image_url: d.image_url ?? null })),
+    ...(drops ?? []).map(d => ({ id: d.id, type: 'drop' as const, title: d.title, description: d.description, cost: d.point_cost, image_url: d.image_url ?? null, quantity_available: d.quantity_available ?? null })),
     ...enrichedAdventures,
   ]
 
@@ -141,6 +142,7 @@ export async function GET() {
     point_value: q.point_value,
     is_grit_quest: q.is_grit_quest ?? false,
     image_url: q.image_url ?? null,
+    is_featured: q.is_featured ?? false,
   }))
 
   return NextResponse.json({
