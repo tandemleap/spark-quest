@@ -35,6 +35,7 @@ export default function AdminQuestsPage() {
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [imageUploading, setImageUploading] = useState(false)
   const [imageError, setImageError] = useState<string | null>(null)
+  const [featuredError, setFeaturedError] = useState<string | null>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
 
   function getToken() { return sessionStorage.getItem('spark_admin_token') ?? '' }
@@ -129,6 +130,24 @@ export default function AdminQuestsPage() {
     }
   }
 
+  async function toggleFeatured(q: Quest) {
+    setFeaturedError(null)
+    const res = await fetch('/api/admin/quests', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': getToken() },
+      body: JSON.stringify({ id: q.id, is_featured: !q.is_featured }),
+    })
+    if (res.ok) {
+      const saved = await res.json()
+      setQuests(prev => prev.map(x => x.id === saved.id ? saved : x))
+    } else {
+      const body = await res.json().catch(() => ({}))
+      if (body.error === 'featured_quest_limit') {
+        setFeaturedError(body.message)
+      }
+    }
+  }
+
   async function handleImagePick(file: File) {
     if (!editingQuest) return
     setImageUploading(true)
@@ -158,9 +177,16 @@ export default function AdminQuestsPage() {
 
   const staffNames = Array.from(new Set(quests.map(q => q.created_by).filter(Boolean) as string[])).sort()
 
+  const featuredCount = quests.filter(q => q.is_featured).length
+
   const filtered = quests
     .filter(q => domainFilter === 'all' || (q.domain_tags ?? []).includes(domainFilter))
     .filter(q => staffFilter === 'all' || q.created_by === staffFilter)
+    // Featured quests sort to top
+    .sort((a, b) => {
+      if (a.is_featured === b.is_featured) return 0
+      return a.is_featured ? -1 : 1
+    })
 
   return (
     <div className="min-h-screen bg-[--color-bg]">
@@ -170,6 +196,30 @@ export default function AdminQuestsPage() {
           <h1 className="text-2xl font-bold text-[--color-text]">Quests ({quests.length})</h1>
           <Button size="sm" onClick={openNew}>+ New Quest</Button>
         </div>
+
+        {/* Featured slot counter */}
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-sm font-semibold text-[--color-text]">
+            ⭐ {featuredCount} of 4 featured slots used
+          </span>
+          <div className="flex gap-1">
+            {[0, 1, 2, 3].map(i => (
+              <div
+                key={i}
+                className="w-5 h-2 rounded-full"
+                style={{ background: i < featuredCount ? '#ffcc33' : 'var(--color-border)' }}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Featured limit error */}
+        {featuredError && (
+          <div className="mb-4 px-4 py-3 rounded-2xl border-2 border-[#cc3333] bg-red-50 text-[#cc3333] text-sm font-semibold flex items-start gap-2">
+            <span className="mt-0.5 flex-shrink-0">⚠️</span>
+            <span>{featuredError}</span>
+          </div>
+        )}
 
         {/* Domain filter */}
         <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-2">
@@ -202,10 +252,17 @@ export default function AdminQuestsPage() {
             {filtered.map(q => (
               <div
                 key={q.id}
-                className={`bg-[--color-surface] border rounded-2xl px-4 py-3 flex items-center gap-3 ${q.is_active ? 'border-[--color-border]' : 'border-[--color-border] opacity-50'}`}
+                className={`border rounded-2xl px-4 py-3 flex items-center gap-3 ${
+                  q.is_featured
+                    ? 'border-[#ffcc33] bg-[#fffbe6]'
+                    : q.is_active
+                    ? 'bg-[--color-surface] border-[--color-border]'
+                    : 'bg-[--color-surface] border-[--color-border] opacity-50'
+                }`}
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
+                    {q.is_featured && <span className="text-base leading-none">⭐</span>}
                     <p className="font-semibold text-[--color-text] truncate">{q.title}</p>
                     {q.is_grit_quest && <span className="text-xs">🔥</span>}
                     {q.quest_type === 'record_chase' && <span className="text-xs">📊</span>}
@@ -218,7 +275,14 @@ export default function AdminQuestsPage() {
                     {q.created_by ? ` · ${q.created_by}` : ''}
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center flex-shrink-0">
+                  <button
+                    onClick={() => toggleFeatured(q)}
+                    title={q.is_featured ? 'Remove from featured' : 'Feature this quest'}
+                    className={`text-lg leading-none transition-opacity ${q.is_featured ? 'opacity-100' : 'opacity-30 hover:opacity-70'}`}
+                  >
+                    ⭐
+                  </button>
                   <button onClick={() => openEdit(q)} className="text-xs text-[--color-accent-light] hover:underline">Edit</button>
                   <button onClick={() => toggleActive(q)} className={`text-xs ${q.is_active ? 'text-red-400' : 'text-green-400'} hover:underline`}>
                     {q.is_active ? 'Deactivate' : 'Activate'}
