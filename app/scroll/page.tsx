@@ -665,13 +665,13 @@ function QuestCard({ quest }: { quest: ScrollQuest }) {
       background: hasImage ? '#111' : '#ffffff',
       border: `2px solid ${accent}44`, borderLeft: `8px solid ${accent}`,
       borderRadius: 28,
-      display: 'flex', flexDirection: 'column', justifyContent: 'center',
+      display: 'flex', flexDirection: 'column', justifyContent: hasImage ? 'flex-end' : 'center',
       position: 'relative', overflow: 'hidden',
     }}>
       {hasImage ? (
         <>
           <img src={quest.image_url!} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(0,0,0,0.93) 48%, rgba(0,0,0,0.15) 100%)' }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.4) 40%, transparent 70%)' }} />
         </>
       ) : (
         <>
@@ -718,13 +718,13 @@ function AdventureCard({ adventure }: { adventure: ScrollReward }) {
       background: hasImage ? '#111' : '#eef6ff',
       border: '2px solid #3399cc33', borderLeft: '8px solid #3399cc',
       borderRadius: 28,
-      display: 'flex', flexDirection: 'column', justifyContent: 'center',
+      display: 'flex', flexDirection: 'column', justifyContent: hasImage ? 'flex-end' : 'center',
       position: 'relative', overflow: 'hidden',
     }}>
       {hasImage ? (
         <>
           <img src={adventure.image_url!} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(0,0,10,0.92) 55%, rgba(0,0,10,0.25) 100%)' }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.4) 40%, transparent 70%)' }} />
         </>
       ) : (
         <div style={{ position: 'absolute', top: -80, right: -80, width: 420, height: 420, borderRadius: '50%', background: '#3399cc', opacity: 0.06, pointerEvents: 'none' }} />
@@ -784,13 +784,13 @@ function DropCard({ drop }: { drop: ScrollReward }) {
       background: hasImage ? '#111' : '#fff8f0',
       border: '2px solid #ff993333', borderLeft: '8px solid #ff9933',
       borderRadius: 28,
-      display: 'flex', flexDirection: 'column', justifyContent: 'center',
+      display: 'flex', flexDirection: 'column', justifyContent: hasImage ? 'flex-end' : 'center',
       position: 'relative', overflow: 'hidden',
     }}>
       {hasImage ? (
         <>
           <img src={drop.image_url!} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(0,0,0,0.93) 50%, rgba(0,0,0,0.15) 100%)' }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.4) 40%, transparent 70%)' }} />
         </>
       ) : (
         <div style={{ position: 'absolute', top: -80, right: -80, width: 400, height: 400, borderRadius: '50%', background: '#ff9933', opacity: 0.07, pointerEvents: 'none' }} />
