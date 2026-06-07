@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { DomainProgressBar } from '@/components/ui/DomainProgressBar'
 import { supabase } from '@/lib/supabase'
 import type { Kid } from '@/lib/types'
@@ -25,11 +25,9 @@ interface ScrollReward {
   description: string | null
   cost: number
   image_url: string | null
-  // adventure-specific
   kids_working_toward?: number
   collective_progress_percent?: number
   kids_threshold?: number
-  // drop-specific
   quantity_available?: number | null
 }
 
@@ -56,7 +54,207 @@ interface AdventureProgress {
   target: number
 }
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// ── Animation variant library ─────────────────────────────────────────────────
+
+type VariantKey =
+  | 'fadeIn' | 'slideFromLeft' | 'slideFromRight' | 'slideFromBottom' | 'slideFromTop'
+  | 'scaleUp' | 'scaleDown' | 'bounceIn' | 'blurIn' | 'rotateIn'
+  | 'cardFlip' | 'perspectiveZoom' | 'tiltLeft' | 'tiltRight' | 'tumbleIn' | 'cubeRotate'
+
+type MomentType = 'kids' | 'quest' | 'adventure' | 'drop'
+
+interface VariantDef {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  initial: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  animate: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  exit: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  transition: any
+  /** Max ms until enter animation is visually settled — used to time the hold. */
+  durationMs: number
+}
+
+const ease = [0.22, 1, 0.36, 1] as const
+
+const VARIANTS: Record<VariantKey, VariantDef> = {
+  fadeIn: {
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit:    { opacity: 0 },
+    transition: { duration: 0.55, ease: 'easeOut' },
+    durationMs: 550,
+  },
+  slideFromLeft: {
+    initial: { x: '-100%' },
+    animate: { x: 0 },
+    exit:    { x: '100%', transition: { duration: 0.5, ease: 'easeIn' } },
+    transition: { duration: 0.65, ease },
+    durationMs: 650,
+  },
+  slideFromRight: {
+    initial: { x: '100%' },
+    animate: { x: 0 },
+    exit:    { x: '-100%', transition: { duration: 0.5, ease: 'easeIn' } },
+    transition: { duration: 0.65, ease },
+    durationMs: 650,
+  },
+  slideFromBottom: {
+    initial: { y: '100%' },
+    animate: { y: 0 },
+    exit:    { y: '-100%', transition: { duration: 0.5, ease: 'easeIn' } },
+    transition: { duration: 0.7, ease },
+    durationMs: 700,
+  },
+  slideFromTop: {
+    initial: { y: '-100%' },
+    animate: { y: 0 },
+    exit:    { y: '100%', transition: { duration: 0.5, ease: 'easeIn' } },
+    transition: { duration: 0.7, ease },
+    durationMs: 700,
+  },
+  scaleUp: {
+    initial: { scale: 0.3, opacity: 0 },
+    animate: { scale: 1, opacity: 1 },
+    exit:    { scale: 0.3, opacity: 0, transition: { duration: 0.4, ease: 'easeIn' } },
+    transition: { duration: 0.7, ease },
+    durationMs: 700,
+  },
+  scaleDown: {
+    initial: { scale: 1.6, opacity: 0 },
+    animate: { scale: 1, opacity: 1 },
+    exit:    { scale: 1.6, opacity: 0, transition: { duration: 0.4, ease: 'easeIn' } },
+    transition: { duration: 0.7, ease },
+    durationMs: 700,
+  },
+  bounceIn: {
+    initial: { scale: 0.15, opacity: 0 },
+    animate: { scale: 1,    opacity: 1 },
+    exit:    { scale: 0.7,  opacity: 0, transition: { type: 'tween', duration: 0.35, ease: 'easeIn' } },
+    transition: { type: 'spring', stiffness: 200, damping: 15 },
+    durationMs: 1400,
+  },
+  blurIn: {
+    initial: { filter: 'blur(24px)', opacity: 0 },
+    animate: { filter: 'blur(0px)',  opacity: 1 },
+    exit:    { filter: 'blur(24px)', opacity: 0, transition: { duration: 0.4, ease: 'easeIn' } },
+    transition: { duration: 0.8, ease: 'easeOut' },
+    durationMs: 800,
+  },
+  rotateIn: {
+    initial: { rotate: -180, scale: 0.5, opacity: 0 },
+    animate: { rotate: 0,    scale: 1,   opacity: 1 },
+    exit:    { rotate: 180,  scale: 0.5, opacity: 0, transition: { duration: 0.45, ease: 'easeIn' } },
+    transition: { duration: 0.9, ease },
+    durationMs: 900,
+  },
+  // ── CSS 3D variants (perspective: 1200px on <main>) ──
+  cardFlip: {
+    initial: { rotateY: 90,  opacity: 0.2 },
+    animate: { rotateY: 0,   opacity: 1   },
+    exit:    { rotateY: -90, opacity: 0.2, transition: { duration: 0.45, ease: 'easeIn' } },
+    transition: { duration: 0.65, ease },
+    durationMs: 650,
+  },
+  perspectiveZoom: {
+    initial: { z: -2000, opacity: 0 },
+    animate: { z: 0,     opacity: 1 },
+    exit:    { z: -2000, opacity: 0, transition: { duration: 0.5, ease: 'easeIn' } },
+    transition: { duration: 0.9, ease },
+    durationMs: 900,
+  },
+  tiltLeft: {
+    initial: { rotateY: -45, opacity: 0 },
+    animate: { rotateY: 0,   opacity: 1 },
+    exit:    { rotateY: 45,  opacity: 0, transition: { duration: 0.4, ease: 'easeIn' } },
+    transition: { duration: 0.7, ease },
+    durationMs: 700,
+  },
+  tiltRight: {
+    initial: { rotateY: 45,  opacity: 0 },
+    animate: { rotateY: 0,   opacity: 1 },
+    exit:    { rotateY: -45, opacity: 0, transition: { duration: 0.4, ease: 'easeIn' } },
+    transition: { duration: 0.7, ease },
+    durationMs: 700,
+  },
+  tumbleIn: {
+    initial: { rotateX: -90, opacity: 0 },
+    animate: { rotateX: 0,   opacity: 1 },
+    exit:    { rotateX: 90,  opacity: 0, transition: { duration: 0.4, ease: 'easeIn' } },
+    transition: { duration: 0.75, ease },
+    durationMs: 750,
+  },
+  cubeRotate: {
+    initial: { rotateY: -90, opacity: 0.1 },
+    animate: { rotateY: 0,   opacity: 1   },
+    exit:    { rotateY: 90,  opacity: 0.1, transition: { duration: 0.45, ease: 'easeIn' } },
+    transition: { duration: 0.7, ease },
+    durationMs: 700,
+  },
+}
+
+// ── Content-to-animation pools ────────────────────────────────────────────────
+
+interface WeightedVariant { key: VariantKey; weight: number }
+
+const POOLS: Record<MomentType, WeightedVariant[]> = {
+  kids: [
+    { key: 'scaleUp',        weight: 3 },
+    { key: 'fadeIn',         weight: 3 },
+    { key: 'slideFromBottom',weight: 3 },
+    { key: 'bounceIn',       weight: 3 },
+    { key: 'blurIn',         weight: 1 },
+    { key: 'slideFromLeft',  weight: 1 },
+    { key: 'slideFromRight', weight: 1 },
+  ],
+  quest: [
+    { key: 'slideFromRight', weight: 3 },
+    { key: 'slideFromLeft',  weight: 3 },
+    { key: 'tiltLeft',       weight: 3 },
+    { key: 'tiltRight',      weight: 3 },
+    { key: 'scaleDown',      weight: 1 },
+    { key: 'cardFlip',       weight: 1 },
+  ],
+  adventure: [
+    { key: 'cardFlip',       weight: 3 },
+    { key: 'cubeRotate',     weight: 3 },
+    { key: 'perspectiveZoom',weight: 3 },
+    { key: 'rotateIn',       weight: 3 },
+    { key: 'slideFromBottom',weight: 1 },
+    { key: 'scaleUp',        weight: 1 },
+  ],
+  drop: [
+    { key: 'fadeIn',         weight: 3 },
+    { key: 'scaleUp',        weight: 3 },
+    { key: 'slideFromLeft',  weight: 3 },
+    { key: 'slideFromRight', weight: 3 },
+    { key: 'blurIn',         weight: 1 },
+    { key: 'tiltLeft',       weight: 1 },
+    { key: 'tiltRight',      weight: 1 },
+  ],
+}
+
+function pickVariant(type: MomentType, lastUsed: VariantKey): VariantKey {
+  const pool = POOLS[type].filter(v => v.key !== lastUsed)
+  const candidates = pool.length > 0 ? pool : POOLS[type]
+  const total = candidates.reduce((s, v) => s + v.weight, 0)
+  let r = Math.random() * total
+  for (const v of candidates) {
+    r -= v.weight
+    if (r <= 0) return v.key
+  }
+  return candidates[candidates.length - 1].key
+}
+
+/** Max ms until enter animation is visually settled for a given variant + content type. */
+function getEnterDuration(variantKey: VariantKey, type: MomentType): number {
+  const base = VARIANTS[variantKey].durationMs
+  // Kid stagger: delay 300+120*2 ms + 350ms duration = ~990ms
+  return type === 'kids' ? Math.max(base, 990) : base
+}
+
+// ── Domain constants ──────────────────────────────────────────────────────────
 
 const DOMAIN_COLORS: Record<string, string> = {
   body: '#ff9933', brain: '#ffcc33', heart: '#993399', hands: '#33cc00', team: '#3399cc',
@@ -65,9 +263,7 @@ const DOMAIN_EMOJI: Record<string, string> = {
   body: '💪', brain: '🧠', heart: '❤️', hands: '🙌', team: '🤝',
 }
 
-// Timer fires after this many ms → triggers key change → exit then enter animation
-// Visible hold ≈ MOMENT_HOLD_MS − enter_animation_duration (~900ms)
-const MOMENT_HOLD_MS = 7200
+const HOLD_MS = 6000
 
 // ── Moment types ──────────────────────────────────────────────────────────────
 
@@ -94,6 +290,8 @@ function buildMoments(
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+interface MomentData { idx: number; variantKey: VariantKey }
+
 export default function ScrollPage() {
   const [kids, setKids] = useState<ScrollKid[]>([])
   const [rewards, setRewards] = useState<ScrollReward[]>([])
@@ -101,9 +299,11 @@ export default function ScrollPage() {
   const [completions, setCompletions] = useState<Completion[]>([])
   const [adventureProgress, setAdventureProgress] = useState<AdventureProgress | null>(null)
   const [loading, setLoading] = useState(true)
-  const [momentIdx, setMomentIdx] = useState(0)
+  const [momentData, setMomentData] = useState<MomentData>({ idx: 0, variantKey: 'fadeIn' })
 
-  // Data fetching — preserve all existing logic
+  const prefersReducedMotion = useReducedMotion()
+
+  // Data fetching — all existing logic preserved
   useEffect(() => {
     function fetchAll() {
       fetch('/api/scroll')
@@ -128,34 +328,40 @@ export default function ScrollPage() {
       })
       .subscribe()
 
-    return () => {
-      clearInterval(refreshInterval)
-      supabase.removeChannel(channel)
-    }
+    return () => { clearInterval(refreshInterval); supabase.removeChannel(channel) }
   }, [])
 
-  // Split rewards into sections
   const featuredQuests = useMemo(() => quests.filter(q => q.is_featured), [quests])
-  const adventures = useMemo(() => rewards.filter(r => r.type === 'adventure'), [rewards])
-  const drops = useMemo(() => rewards.filter(r => r.type === 'drop'), [rewards])
-
-  const moments = useMemo(
+  const adventures     = useMemo(() => rewards.filter(r => r.type === 'adventure'), [rewards])
+  const drops          = useMemo(() => rewards.filter(r => r.type === 'drop'), [rewards])
+  const moments        = useMemo(
     () => buildMoments(kids, featuredQuests, adventures, drops),
     [kids, featuredQuests, adventures, drops]
   )
 
-  // Advance presentation on a fixed timer
+  // Advance timer: fires after enter animation settles + hard 6000ms hold
   useEffect(() => {
     if (moments.length === 0) return
-    const t = setTimeout(() => setMomentIdx(p => (p + 1) % moments.length), MOMENT_HOLD_MS)
+    const currentMomentType = (moments[momentData.idx % moments.length]?.type ?? 'kids') as MomentType
+    const enterMs = getEnterDuration(momentData.variantKey, currentMomentType)
+
+    const t = setTimeout(() => {
+      const nextIdx = (momentData.idx + 1) % moments.length
+      const nextType = moments[nextIdx].type as MomentType
+      const nextKey: VariantKey = prefersReducedMotion
+        ? 'fadeIn'
+        : pickVariant(nextType, momentData.variantKey)
+      setMomentData({ idx: nextIdx, variantKey: nextKey })
+    }, enterMs + HOLD_MS)
+
     return () => clearTimeout(t)
-  }, [momentIdx, moments.length])
+  }, [momentData, moments, prefersReducedMotion])
 
   // Ticker
   const tickerItems = completions.map(c =>
     `⚡ ${c.kids?.name_handle ?? '?'} completed "${c.quests?.title ?? '?'}" +${c.points_awarded}pts`
   )
-  const tickerText = tickerItems.join('   ·   ')
+  const tickerText    = tickerItems.join('   ·   ')
   const doubledTicker = tickerText + '   ·   ' + tickerText
   const tickerDuration = Math.max(30, tickerItems.length * 6)
 
@@ -167,33 +373,36 @@ export default function ScrollPage() {
     )
   }
 
-  const currentMoment = moments.length > 0 ? moments[momentIdx % moments.length] : null
+  const currentMoment = moments.length > 0 ? moments[momentData.idx % moments.length] : null
 
   return (
     <div style={{
-      background: '#f0f4f8',
-      height: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      overflow: 'hidden',
-      fontFamily: '"Space Grotesk", system-ui, sans-serif',
-      color: '#111111',
+      background: '#f0f4f8', height: '100vh',
+      display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      fontFamily: '"Space Grotesk", system-ui, sans-serif', color: '#111111',
     }}>
-
-      {/* ── Status bar ── */}
       <StatusBar kids={kids} adventureProgress={adventureProgress} />
 
-      {/* ── Main presentation area ── */}
-      <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+      {/*
+        perspective on <main> creates the 3D context for cardFlip / cubeRotate /
+        tiltLeft / tiltRight / tumbleIn / perspectiveZoom variants.
+        2D variants (x, y, scale, opacity, filter) are unaffected.
+      */}
+      <main style={{
+        flex: 1, overflow: 'hidden', position: 'relative',
+        perspective: '1200px',
+      }}>
         <AnimatePresence mode="wait">
           {currentMoment ? (
-            <PresentationSlide key={`moment-${momentIdx}`} moment={currentMoment} />
+            <PresentationSlide
+              key={`m-${momentData.idx}`}
+              moment={currentMoment}
+              variantKey={momentData.variantKey}
+            />
           ) : (
             <motion.div
               key="empty"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
               <p style={{ fontSize: 24, color: '#888', fontFamily: 'var(--font-barlow)', fontWeight: 700 }}>
@@ -204,7 +413,6 @@ export default function ScrollPage() {
         </AnimatePresence>
       </main>
 
-      {/* ── Bottom ticker ── */}
       <div style={{
         height: 80, flexShrink: 0,
         background: '#0a1929', borderTop: '2px solid #152840',
@@ -244,25 +452,17 @@ function StatusBar({ kids, adventureProgress }: { kids: ScrollKid[]; adventurePr
       padding: '0 40px',
       background: '#0a1929', borderBottom: '2px solid #152840',
     }}>
-      {/* Wordmark */}
-      <span style={{
-        fontSize: 30, fontFamily: 'var(--font-barlow)', fontWeight: 900,
-        letterSpacing: '0.04em', color: '#3399cc', textTransform: 'uppercase',
-      }}>
+      <span style={{ fontSize: 30, fontFamily: 'var(--font-barlow)', fontWeight: 900, letterSpacing: '0.04em', color: '#3399cc', textTransform: 'uppercase' }}>
         ⚡ SPARK QUEST
       </span>
 
-      {/* Member count */}
       <div style={{ textAlign: 'center', lineHeight: 1 }}>
-        <p style={{ fontSize: 30, fontFamily: 'var(--font-barlow)', fontWeight: 900, color: '#ffffff', margin: 0 }}>
-          {kids.length}
-        </p>
+        <p style={{ fontSize: 30, fontFamily: 'var(--font-barlow)', fontWeight: 900, color: '#ffffff', margin: 0 }}>{kids.length}</p>
         <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.22em', color: '#3a6a9a', margin: 0 }}>
           {activeToday > 0 ? `${activeToday} active today` : 'members'}
         </p>
       </div>
 
-      {/* Featured adventure progress */}
       <div style={{ textAlign: 'right', minWidth: 300 }}>
         {adventureProgress ? (
           <>
@@ -271,10 +471,7 @@ function StatusBar({ kids, adventureProgress }: { kids: ScrollKid[]; adventurePr
             </p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ flex: 1, height: 8, borderRadius: 999, background: '#152840', overflow: 'hidden', position: 'relative' }}>
-                <div style={{
-                  position: 'absolute', left: 0, top: 0, height: '100%', borderRadius: 999,
-                  background: '#3399cc', width: `${pct}%`, transition: 'width 1.2s ease',
-                }} />
+                <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', borderRadius: 999, background: '#3399cc', width: `${pct}%`, transition: 'width 1.2s ease' }} />
               </div>
               <span style={{ fontSize: 13, color: '#6aaad0', whiteSpace: 'nowrap', fontWeight: 700 }}>{pct}%</span>
             </div>
@@ -289,11 +486,15 @@ function StatusBar({ kids, adventureProgress }: { kids: ScrollKid[]; adventurePr
 
 // ── Slide dispatcher ──────────────────────────────────────────────────────────
 
-function PresentationSlide({ moment }: { moment: Moment }) {
-  if (moment.type === 'kids')      return <KidsMoment kids={moment.kids} />
-  if (moment.type === 'quest')     return <QuestMoment quest={moment.quest} />
-  if (moment.type === 'adventure') return <AdventureMoment adventure={moment.adventure} />
-  return <DropMoment drop={moment.drop} />
+function PresentationSlide({ moment, variantKey }: { moment: Moment; variantKey: VariantKey }) {
+  // Capture variant at mount time so parent re-renders can't change the exit animation
+  // of a slide that is already in its exit phase.
+  const v = VARIANTS[useRef(variantKey).current]
+
+  if (moment.type === 'kids')      return <KidsMoment      kids={moment.kids}           v={v} />
+  if (moment.type === 'quest')     return <QuestMoment     quest={moment.quest}         v={v} />
+  if (moment.type === 'adventure') return <AdventureMoment adventure={moment.adventure} v={v} />
+  return                                  <DropMoment      drop={moment.drop}           v={v} />
 }
 
 // ── Section label ─────────────────────────────────────────────────────────────
@@ -302,41 +503,31 @@ function SectionLabel({ icon, label }: { icon: string; label: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
       <span style={{ fontSize: 14 }}>{icon}</span>
-      <span style={{
-        fontSize: 10, fontFamily: 'var(--font-barlow)', fontWeight: 700,
-        textTransform: 'uppercase', letterSpacing: '0.35em', color: '#8899aa',
-      }}>
+      <span style={{ fontSize: 10, fontFamily: 'var(--font-barlow)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.35em', color: '#8899aa' }}>
         {label}
       </span>
     </div>
   )
 }
 
-// ── Kids moment ───────────────────────────────────────────────────────────────
+// ── Moment wrappers ───────────────────────────────────────────────────────────
 
-function KidsMoment({ kids }: { kids: ScrollKid[] }) {
+function KidsMoment({ kids, v }: { kids: ScrollKid[]; v: VariantDef }) {
   const cols = Math.min(kids.length, 3)
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0, y: -12 }}
-      transition={{ duration: 0.5 }}
-      style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: '28px 36px 28px' }}
+      initial={v.initial} animate={v.animate} exit={v.exit} transition={v.transition}
+      style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: '28px 36px 28px', willChange: 'transform' }}
     >
       <SectionLabel icon="👥" label="Our Members" />
-      <div style={{
-        flex: 1, minHeight: 0,
-        display: 'grid',
-        gridTemplateColumns: `repeat(${cols}, 1fr)`,
-        gap: 24,
-      }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 24 }}>
         {kids.map((kid, i) => (
+          // Opacity-only stagger — spatial motion comes from the wrapper variant
           <motion.div
             key={kid.id}
-            initial={{ opacity: 0, y: 64 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.75, delay: 0.1 + i * 0.14, ease: [0.22, 1, 0.36, 1] }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.35, delay: 0.3 + i * 0.12 }}
             style={{ minHeight: 0 }}
           >
             <KidCard kid={kid} />
@@ -347,16 +538,11 @@ function KidsMoment({ kids }: { kids: ScrollKid[] }) {
   )
 }
 
-// ── Quest moment ──────────────────────────────────────────────────────────────
-
-function QuestMoment({ quest }: { quest: ScrollQuest }) {
+function QuestMoment({ quest, v }: { quest: ScrollQuest; v: VariantDef }) {
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.97 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 1.02 }}
-      transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-      style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: '28px 80px 28px' }}
+      initial={v.initial} animate={v.animate} exit={v.exit} transition={v.transition}
+      style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: '28px 80px 28px', willChange: 'transform' }}
     >
       <SectionLabel icon="⭐" label="Featured Quest" />
       <div style={{ flex: 1, minHeight: 0 }}><QuestCard quest={quest} /></div>
@@ -364,16 +550,11 @@ function QuestMoment({ quest }: { quest: ScrollQuest }) {
   )
 }
 
-// ── Adventure moment ──────────────────────────────────────────────────────────
-
-function AdventureMoment({ adventure }: { adventure: ScrollReward }) {
+function AdventureMoment({ adventure, v }: { adventure: ScrollReward; v: VariantDef }) {
   return (
     <motion.div
-      initial={{ opacity: 0, x: 48 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -48 }}
-      transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
-      style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: '28px 80px 28px' }}
+      initial={v.initial} animate={v.animate} exit={v.exit} transition={v.transition}
+      style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: '28px 80px 28px', willChange: 'transform' }}
     >
       <SectionLabel icon="🗺" label="Group Adventure" />
       <div style={{ flex: 1, minHeight: 0 }}><AdventureCard adventure={adventure} /></div>
@@ -381,16 +562,11 @@ function AdventureMoment({ adventure }: { adventure: ScrollReward }) {
   )
 }
 
-// ── Drop moment ───────────────────────────────────────────────────────────────
-
-function DropMoment({ drop }: { drop: ScrollReward }) {
+function DropMoment({ drop, v }: { drop: ScrollReward; v: VariantDef }) {
   return (
     <motion.div
-      initial={{ opacity: 0, x: -48 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 48 }}
-      transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
-      style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: '28px 80px 28px' }}
+      initial={v.initial} animate={v.animate} exit={v.exit} transition={v.transition}
+      style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', padding: '28px 80px 28px', willChange: 'transform' }}
     >
       <SectionLabel icon="🎁" label="Reward Drop" />
       <div style={{ flex: 1, minHeight: 0 }}><DropCard drop={drop} /></div>
@@ -398,14 +574,14 @@ function DropMoment({ drop }: { drop: ScrollReward }) {
   )
 }
 
-// ── Kid card ──────────────────────────────────────────────────────────────────
+// ── Card components ───────────────────────────────────────────────────────────
 
 function KidCard({ kid }: { kid: ScrollKid }) {
   const kp = {
     body: kid.body_points ?? 0, brain: kid.brain_points ?? 0, heart: kid.heart_points ?? 0,
     hands: kid.hands_points ?? 0, team: kid.team_points ?? 0,
   }
-  const hasGoal    = !!kid.long_term_goal
+  const hasGoal     = !!kid.long_term_goal
   const scoredToday = kid.daily_points_today > 0
 
   return (
@@ -419,21 +595,14 @@ function KidCard({ kid }: { kid: ScrollKid }) {
       position: 'relative', overflow: 'hidden',
       animation: scoredToday ? 'yellow-pulse 2s ease-in-out infinite' : 'card-glow 3s ease-in-out infinite',
     }}>
-      {/* Decorative orb */}
       <div style={{ position: 'absolute', bottom: -48, right: -48, width: 160, height: 160, borderRadius: '50%', background: '#3399cc', opacity: 0.07, pointerEvents: 'none' }} />
 
-      {/* Today badge */}
       {scoredToday && (
-        <div style={{
-          position: 'absolute', top: 14, right: 14,
-          background: '#ffcc33', borderRadius: 999, padding: '3px 10px',
-          fontSize: 12, fontWeight: 800, color: '#111',
-        }}>
+        <div style={{ position: 'absolute', top: 14, right: 14, background: '#ffcc33', borderRadius: 999, padding: '3px 10px', fontSize: 12, fontWeight: 800, color: '#111' }}>
           +{kid.daily_points_today} today ⚡
         </div>
       )}
 
-      {/* Avatar */}
       <div style={{ display: 'flex', justifyContent: 'center' }}>
         <div style={{
           width: 150, height: 150, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
@@ -450,46 +619,29 @@ function KidCard({ kid }: { kid: ScrollKid }) {
         </div>
       </div>
 
-      {/* Name + XP */}
       <div style={{ textAlign: 'center' }}>
-        <p style={{
-          fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 32,
-          textTransform: 'uppercase', letterSpacing: '-0.01em',
-          color: '#111', lineHeight: 1, margin: 0,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>
+        <p style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 32, textTransform: 'uppercase', letterSpacing: '-0.01em', color: '#111', lineHeight: 1, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {kid.name_handle}
         </p>
         <p style={{ fontSize: 15, color: '#444', margin: '4px 0 0' }}>
-          <span style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 28, color: '#3399cc' }}>
-            {kid.total_points_earned}
-          </span>
+          <span style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 28, color: '#3399cc' }}>{kid.total_points_earned}</span>
           {' '}<span style={{ textTransform: 'uppercase', letterSpacing: '0.1em', fontSize: 12 }}>xp earned</span>
         </p>
       </div>
 
-      {/* Goal */}
       {hasGoal && (
         <div style={{ textAlign: 'center', padding: '0 4px' }}>
-          <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#3399cc', margin: '0 0 2px', fontWeight: 700 }}>
-            Working toward
-          </p>
-          <p style={{ fontSize: 14, color: '#1a5c8a', fontWeight: 700, lineHeight: 1.25, margin: 0 }}>
-            {kid.long_term_goal!.title}
-          </p>
+          <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#3399cc', margin: '0 0 2px', fontWeight: 700 }}>Working toward</p>
+          <p style={{ fontSize: 14, color: '#1a5c8a', fontWeight: 700, lineHeight: 1.25, margin: 0 }}>{kid.long_term_goal!.title}</p>
         </div>
       )}
 
-      {/* Progress bar */}
       <div style={{ marginTop: 'auto' }}>
         {hasGoal ? (
           <DomainProgressBar
-            kidPoints={kp}
-            totalEarned={kid.total_points_earned}
-            targetCost={kid.long_term_goal!.cost}
-            availablePoints={kid.available_points}
-            height="lg"
-            showLabel
+            kidPoints={kp} totalEarned={kid.total_points_earned}
+            targetCost={kid.long_term_goal!.cost} availablePoints={kid.available_points}
+            height="lg" showLabel
           />
         ) : (
           <div style={{ height: 14, borderRadius: 999, background: '#c8e4f4' }}>
@@ -501,8 +653,6 @@ function KidCard({ kid }: { kid: ScrollKid }) {
   )
 }
 
-// ── Quest card ────────────────────────────────────────────────────────────────
-
 function QuestCard({ quest }: { quest: ScrollQuest }) {
   const domain   = quest.domain_tags[0] ?? 'team'
   const accent   = DOMAIN_COLORS[domain] ?? '#3399cc'
@@ -513,8 +663,7 @@ function QuestCard({ quest }: { quest: ScrollQuest }) {
     <div style={{
       height: '100%',
       background: hasImage ? '#111' : '#ffffff',
-      border: `2px solid ${accent}44`,
-      borderLeft: `8px solid ${accent}`,
+      border: `2px solid ${accent}44`, borderLeft: `8px solid ${accent}`,
       borderRadius: 28,
       display: 'flex', flexDirection: 'column', justifyContent: 'center',
       position: 'relative', overflow: 'hidden',
@@ -530,36 +679,22 @@ function QuestCard({ quest }: { quest: ScrollQuest }) {
           <div style={{ position: 'absolute', bottom: -60, left: -60, width: 280, height: 280, borderRadius: '50%', background: accent, opacity: 0.04, pointerEvents: 'none' }} />
         </>
       )}
-
       <div style={{ position: 'relative', padding: '40px 64px', display: 'flex', flexDirection: 'column', gap: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <span style={{ fontSize: 48 }}>{emoji}</span>
           {quest.is_grit_quest && (
-            <span style={{
-              background: '#cc3333', color: '#fff', borderRadius: 999,
-              fontSize: 13, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.15em',
-              padding: '4px 14px',
-            }}>🔥 Grit Quest</span>
+            <span style={{ background: '#cc3333', color: '#fff', borderRadius: 999, fontSize: 13, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.15em', padding: '4px 14px' }}>
+              🔥 Grit Quest
+            </span>
           )}
         </div>
-
-        <h2 style={{
-          fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 76,
-          lineHeight: 0.95, textTransform: 'uppercase', letterSpacing: '-0.02em',
-          color: hasImage ? '#ffffff' : '#111', margin: 0, maxWidth: '80%',
-        }}>
+        <h2 style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 76, lineHeight: 0.95, textTransform: 'uppercase', letterSpacing: '-0.02em', color: hasImage ? '#ffffff' : '#111', margin: 0, maxWidth: '80%' }}>
           {quest.title}
         </h2>
-
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
-          <span style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 72, color: hasImage ? '#ffcc33' : accent, lineHeight: 1 }}>
-            +{quest.point_value}
-          </span>
-          <span style={{ fontSize: 22, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: hasImage ? 'rgba(255,255,255,0.6)' : '#666' }}>
-            points
-          </span>
+          <span style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 72, color: hasImage ? '#ffcc33' : accent, lineHeight: 1 }}>+{quest.point_value}</span>
+          <span style={{ fontSize: 22, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: hasImage ? 'rgba(255,255,255,0.6)' : '#666' }}>points</span>
         </div>
-
         <p style={{ fontSize: 15, color: hasImage ? 'rgba(255,255,255,0.45)' : '#999', textTransform: 'uppercase', letterSpacing: '0.12em', margin: 0 }}>
           Complete with a SPARK mentor
         </p>
@@ -568,25 +703,20 @@ function QuestCard({ quest }: { quest: ScrollQuest }) {
   )
 }
 
-// ── Adventure card ────────────────────────────────────────────────────────────
-
 function AdventureCard({ adventure }: { adventure: ScrollReward }) {
-  const hasImage      = !!adventure.image_url
-  const pct           = adventure.collective_progress_percent ?? 0
-  const kidsWorking   = adventure.kids_working_toward ?? 0
-  const threshold     = adventure.kids_threshold ?? 0
-  const descExcerpt   = adventure.description
-    ? adventure.description.length > 130
-      ? adventure.description.slice(0, 130) + '…'
-      : adventure.description
+  const hasImage    = !!adventure.image_url
+  const pct         = adventure.collective_progress_percent ?? 0
+  const kidsWorking = adventure.kids_working_toward ?? 0
+  const threshold   = adventure.kids_threshold ?? 0
+  const descExcerpt = adventure.description
+    ? adventure.description.length > 130 ? adventure.description.slice(0, 130) + '…' : adventure.description
     : null
 
   return (
     <div style={{
       height: '100%',
       background: hasImage ? '#111' : '#eef6ff',
-      border: '2px solid #3399cc33',
-      borderLeft: '8px solid #3399cc',
+      border: '2px solid #3399cc33', borderLeft: '8px solid #3399cc',
       borderRadius: 28,
       display: 'flex', flexDirection: 'column', justifyContent: 'center',
       position: 'relative', overflow: 'hidden',
@@ -599,63 +729,32 @@ function AdventureCard({ adventure }: { adventure: ScrollReward }) {
       ) : (
         <div style={{ position: 'absolute', top: -80, right: -80, width: 420, height: 420, borderRadius: '50%', background: '#3399cc', opacity: 0.06, pointerEvents: 'none' }} />
       )}
-
       <div style={{ position: 'relative', padding: '40px 64px', display: 'flex', flexDirection: 'column', gap: 22 }}>
-        {/* Header label + kids count */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 32 }}>🗺</span>
-            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: hasImage ? 'rgba(255,255,255,0.55)' : '#3399cc' }}>
-              Group Adventure
-            </span>
+            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: hasImage ? 'rgba(255,255,255,0.55)' : '#3399cc' }}>Group Adventure</span>
           </div>
           {kidsWorking > 0 && (
-            <span style={{
-              background: hasImage ? 'rgba(51,153,204,0.25)' : '#d0e8f8',
-              color: hasImage ? '#7ac8ef' : '#1a6a9a',
-              borderRadius: 999, padding: '5px 18px',
-              fontSize: 15, fontWeight: 700,
-            }}>
+            <span style={{ background: hasImage ? 'rgba(51,153,204,0.25)' : '#d0e8f8', color: hasImage ? '#7ac8ef' : '#1a6a9a', borderRadius: 999, padding: '5px 18px', fontSize: 15, fontWeight: 700 }}>
               {kidsWorking} kid{kidsWorking !== 1 ? 's' : ''} working toward this
             </span>
           )}
         </div>
-
-        {/* Title */}
-        <h2 style={{
-          fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 70,
-          lineHeight: 0.95, textTransform: 'uppercase', letterSpacing: '-0.02em',
-          color: hasImage ? '#ffffff' : '#111', margin: 0,
-        }}>
+        <h2 style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 70, lineHeight: 0.95, textTransform: 'uppercase', letterSpacing: '-0.02em', color: hasImage ? '#ffffff' : '#111', margin: 0 }}>
           {adventure.title}
         </h2>
-
-        {/* Description */}
         {descExcerpt && (
-          <p style={{ fontSize: 22, color: hasImage ? 'rgba(255,255,255,0.7)' : '#444', lineHeight: 1.4, margin: 0, maxWidth: '75%' }}>
-            {descExcerpt}
-          </p>
+          <p style={{ fontSize: 22, color: hasImage ? 'rgba(255,255,255,0.7)' : '#444', lineHeight: 1.4, margin: 0, maxWidth: '75%' }}>{descExcerpt}</p>
         )}
-
-        {/* Cost */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-          <span style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 54, color: hasImage ? '#ffcc33' : '#3399cc', lineHeight: 1 }}>
-            {adventure.cost} pts
-          </span>
-          <span style={{ fontSize: 17, color: hasImage ? 'rgba(255,255,255,0.5)' : '#666', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-            per kid · {threshold} kids needed
-          </span>
+          <span style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 54, color: hasImage ? '#ffcc33' : '#3399cc', lineHeight: 1 }}>{adventure.cost} pts</span>
+          <span style={{ fontSize: 17, color: hasImage ? 'rgba(255,255,255,0.5)' : '#666', textTransform: 'uppercase', letterSpacing: '0.1em' }}>per kid · {threshold} kids needed</span>
         </div>
-
-        {/* Progress */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <p style={{ margin: 0, fontSize: 17, fontWeight: 600, color: hasImage ? 'rgba(255,255,255,0.8)' : '#333' }}>
-              We're working toward this together
-            </p>
-            <span style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 40, color: hasImage ? '#ffcc33' : '#3399cc' }}>
-              {pct}%
-            </span>
+            <p style={{ margin: 0, fontSize: 17, fontWeight: 600, color: hasImage ? 'rgba(255,255,255,0.8)' : '#333' }}>We're working toward this together</p>
+            <span style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 40, color: hasImage ? '#ffcc33' : '#3399cc' }}>{pct}%</span>
           </div>
           <div style={{ height: 18, borderRadius: 999, background: hasImage ? 'rgba(255,255,255,0.12)' : '#c8dff0', overflow: 'hidden' }}>
             <motion.div
@@ -665,32 +764,25 @@ function AdventureCard({ adventure }: { adventure: ScrollReward }) {
               style={{ height: '100%', borderRadius: 999, background: '#3399cc' }}
             />
           </div>
-          <p style={{ margin: 0, fontSize: 12, color: hasImage ? 'rgba(255,255,255,0.4)' : '#888', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-            of the way there
-          </p>
+          <p style={{ margin: 0, fontSize: 12, color: hasImage ? 'rgba(255,255,255,0.4)' : '#888', textTransform: 'uppercase', letterSpacing: '0.12em' }}>of the way there</p>
         </div>
       </div>
     </div>
   )
 }
 
-// ── Drop card ─────────────────────────────────────────────────────────────────
-
 function DropCard({ drop }: { drop: ScrollReward }) {
   const hasImage    = !!drop.image_url
   const hasQty      = drop.quantity_available != null && drop.quantity_available > 0
   const descExcerpt = drop.description
-    ? drop.description.length > 130
-      ? drop.description.slice(0, 130) + '…'
-      : drop.description
+    ? drop.description.length > 130 ? drop.description.slice(0, 130) + '…' : drop.description
     : null
 
   return (
     <div style={{
       height: '100%',
       background: hasImage ? '#111' : '#fff8f0',
-      border: '2px solid #ff993333',
-      borderLeft: '8px solid #ff9933',
+      border: '2px solid #ff993333', borderLeft: '8px solid #ff9933',
       borderRadius: 28,
       display: 'flex', flexDirection: 'column', justifyContent: 'center',
       position: 'relative', overflow: 'hidden',
@@ -703,49 +795,25 @@ function DropCard({ drop }: { drop: ScrollReward }) {
       ) : (
         <div style={{ position: 'absolute', top: -80, right: -80, width: 400, height: 400, borderRadius: '50%', background: '#ff9933', opacity: 0.07, pointerEvents: 'none' }} />
       )}
-
       <div style={{ position: 'relative', padding: '40px 64px', display: 'flex', flexDirection: 'column', gap: 22 }}>
-        {/* Header label */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <span style={{ fontSize: 36 }}>🎁</span>
-          <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: hasImage ? 'rgba(255,255,255,0.55)' : '#ff9933' }}>
-            Reward Drop
-          </span>
+          <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: hasImage ? 'rgba(255,255,255,0.55)' : '#ff9933' }}>Reward Drop</span>
           {hasQty && (
-            <span style={{
-              background: '#ff9933', color: '#111', borderRadius: 999,
-              fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em',
-              padding: '3px 14px', marginLeft: 4,
-            }}>
+            <span style={{ background: '#ff9933', color: '#111', borderRadius: 999, fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', padding: '3px 14px', marginLeft: 4 }}>
               {drop.quantity_available} left
             </span>
           )}
         </div>
-
-        {/* Title */}
-        <h2 style={{
-          fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 76,
-          lineHeight: 0.95, textTransform: 'uppercase', letterSpacing: '-0.02em',
-          color: hasImage ? '#ffffff' : '#111', margin: 0,
-        }}>
+        <h2 style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 76, lineHeight: 0.95, textTransform: 'uppercase', letterSpacing: '-0.02em', color: hasImage ? '#ffffff' : '#111', margin: 0 }}>
           {drop.title}
         </h2>
-
-        {/* Description */}
         {descExcerpt && (
-          <p style={{ fontSize: 22, color: hasImage ? 'rgba(255,255,255,0.7)' : '#444', lineHeight: 1.4, margin: 0, maxWidth: '75%' }}>
-            {descExcerpt}
-          </p>
+          <p style={{ fontSize: 22, color: hasImage ? 'rgba(255,255,255,0.7)' : '#444', lineHeight: 1.4, margin: 0, maxWidth: '75%' }}>{descExcerpt}</p>
         )}
-
-        {/* Cost */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
-          <span style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 72, color: hasImage ? '#ffcc33' : '#ff9933', lineHeight: 1 }}>
-            {drop.cost} pts
-          </span>
-          <span style={{ fontSize: 20, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: hasImage ? 'rgba(255,255,255,0.5)' : '#666' }}>
-            — spend in the app
-          </span>
+          <span style={{ fontFamily: 'var(--font-barlow)', fontWeight: 900, fontSize: 72, color: hasImage ? '#ffcc33' : '#ff9933', lineHeight: 1 }}>{drop.cost} pts</span>
+          <span style={{ fontSize: 20, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: hasImage ? 'rgba(255,255,255,0.5)' : '#666' }}>— spend in the app</span>
         </div>
       </div>
     </div>
