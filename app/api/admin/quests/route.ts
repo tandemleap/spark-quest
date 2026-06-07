@@ -75,6 +75,21 @@ export async function PATCH(request: NextRequest) {
   }
 
   const supabase = getServiceSupabase()
+
+  // Enforce max 4 featured quests at a time
+  if (updates.is_featured === true) {
+    const { count } = await supabase
+      .from('quests')
+      .select('id', { count: 'exact', head: true })
+      .eq('is_featured', true)
+      .neq('id', id)
+    if ((count ?? 0) >= 4) {
+      return NextResponse.json(
+        { error: 'featured_quest_limit', message: 'You already have 4 featured quests this week. Remove one before adding another.' },
+        { status: 400 }
+      )
+    }
+  }
   const { data, error } = await supabase
     .from('quests')
     .update(updates)

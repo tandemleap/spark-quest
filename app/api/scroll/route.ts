@@ -10,7 +10,10 @@ export async function GET() {
   const [kidsResult, completionsResult, featuredResult, todayResult] = await Promise.all([
     supabase
       .from('kids')
-      .select('id, name_handle, total_points_earned, available_points, avatar_url, show_avatar_in_scroll, body_points, brain_points, heart_points, hands_points, team_points, long_term_goal_id, long_term_goal_type')
+      .select('id, name_handle, total_points_earned, available_points, avatar_url, show_avatar_in_scroll, body_points, brain_points, heart_points, hands_points, team_points, long_term_goal_id, long_term_goal_type, short_term_goal_id, short_term_goal_type')
+      .not('avatar_url', 'is', null)
+      .neq('avatar_url', '')
+      .or('short_term_goal_id.not.is.null,long_term_goal_id.not.is.null')
       .order('name_handle', { ascending: true }),
 
     supabase
@@ -33,7 +36,14 @@ export async function GET() {
       .gte('completed_at', new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString()),
   ])
 
-  const kids = kidsResult.data ?? []
+  // Filter to only kids who have at least one quest completion
+  const allKids = kidsResult.data ?? []
+  const { data: completedKidIds } = await supabase
+    .from('quest_completions')
+    .select('kid_id')
+
+  const completedSet = new Set((completedKidIds ?? []).map(r => r.kid_id))
+  const kids = allKids.filter(k => completedSet.has(k.id))
 
   // Build per-kid today's points map (filter to exact CT date)
   const todayPtsMap: Record<string, number> = {}
@@ -94,9 +104,34 @@ export async function GET() {
     supabase.from('quests').select('id, title, domain_tags, point_value, is_grit_quest, image_url').eq('is_active', true).order('point_value', { ascending: false }).limit(8),
   ])
 
+  // Enrich each adventure with kids_working_toward and collective_progress_percent
+  const enrichedAdventures = (adventures ?? []).map(a => {
+    const workingKids = kids.filter(k =>
+      (k.short_term_goal_id === a.id && k.short_term_goal_type === 'adventure') ||
+      (k.long_term_goal_id === a.id && k.long_term_goal_type === 'adventure')
+    )
+    const kidsWorkingToward = workingKids.length
+    const totalPool = a.point_cost_per_kid * a.kids_threshold
+    const contributed = workingKids.reduce((sum, k) => sum + Math.min(k.available_points, a.point_cost_per_kid), 0)
+    const collectiveProgressPercent = totalPool > 0
+      ? Math.min(100, Math.round((contributed / totalPool) * 100))
+      : 0
+
+    return {
+      id: a.id,
+      type: 'adventure' as const,
+      title: a.title,
+      description: a.description,
+      cost: a.point_cost_per_kid,
+      image_url: a.image_url ?? null,
+      kids_working_toward: kidsWorkingToward,
+      collective_progress_percent: collectiveProgressPercent,
+    }
+  })
+
   const rewards = [
     ...(drops ?? []).map(d => ({ id: d.id, type: 'drop' as const, title: d.title, description: d.description, cost: d.point_cost, image_url: d.image_url ?? null })),
-    ...(adventures ?? []).map(a => ({ id: a.id, type: 'adventure' as const, title: a.title, description: a.description, cost: a.point_cost_per_kid, image_url: a.image_url ?? null })),
+    ...enrichedAdventures,
   ]
 
   const quests = (questsData ?? []).map(q => ({
