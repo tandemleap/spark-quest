@@ -260,6 +260,11 @@ export default function AdminQuestsPage() {
                     : 'bg-[--color-surface] border-[--color-border] opacity-50'
                 }`}
               >
+                {q.image_url ? (
+                  <img src={q.image_url} alt="" className="w-12 h-12 rounded-xl object-cover flex-shrink-0 border border-[--color-border]" />
+                ) : (
+                  <div className="w-12 h-12 rounded-xl flex-shrink-0 bg-[--color-bg] border border-dashed border-[--color-border]" />
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {q.is_featured && <span className="text-base leading-none">⭐</span>}

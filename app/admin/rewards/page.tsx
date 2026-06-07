@@ -240,11 +240,15 @@ export default function AdminRewardsPage() {
           <div className="flex flex-col gap-2">
             {drops.map(item => (
               <div key={item.id} className={`bg-[--color-surface] border rounded-2xl px-4 py-3 flex items-center gap-3 ${item.is_active ? 'border-[--color-border]' : 'border-[--color-border] opacity-50'}`}>
+                {item.image_url ? (
+                  <img src={item.image_url} alt="" className="w-12 h-12 rounded-xl object-cover flex-shrink-0 border border-[--color-border]" />
+                ) : (
+                  <div className="w-12 h-12 rounded-xl flex-shrink-0 bg-[--color-bg] border border-dashed border-[--color-border]" />
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-semibold text-[--color-text] truncate">{item.title}</p>
                     {item.is_featured && <span className="text-xs text-yellow-400 flex-shrink-0">⭐ Featured</span>}
-                    {item.image_url && <span className="text-xs text-[--color-muted] flex-shrink-0">🖼</span>}
                   </div>
                   <p className="text-xs text-[--color-muted]">
                     {item.point_cost} pts{item.quantity_available !== null ? ` · ${item.quantity_available} left` : ' · unlimited'}
@@ -280,6 +284,11 @@ export default function AdminRewardsPage() {
                 <div key={adv.id} className={`bg-[--color-surface] border rounded-2xl overflow-hidden ${adv.is_active ? 'border-[--color-border]' : 'border-[--color-border] opacity-50'}`}>
                   <div className="px-4 py-3">
                     <div className="flex items-start justify-between gap-2 mb-2">
+                      {adv.image_url ? (
+                        <img src={adv.image_url} alt="" className="w-12 h-12 rounded-xl object-cover flex-shrink-0 border border-[--color-border] mt-0.5" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-xl flex-shrink-0 bg-[--color-bg] border border-dashed border-[--color-border] mt-0.5" />
+                      )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-[--color-text] truncate">{adv.title}</p>
