@@ -92,6 +92,7 @@ export interface Quest {
   score_unit: string | null
   score_direction: 'higher' | 'lower'
   record_set_points: number
+  is_featured: boolean
 }
 
 export interface QuestCompletion {
