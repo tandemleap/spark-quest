@@ -15,8 +15,9 @@ export async function GET(request: NextRequest) {
       completed_at,
       verified_by_initials,
       points_awarded,
+      powerup_claimed,
       kids ( id, name_handle, avatar_url ),
-      quests ( id, title, category, point_value )
+      quests ( id, title, domain_tags, point_value )
     `)
     .order('completed_at', { ascending: false })
     .limit(200)
