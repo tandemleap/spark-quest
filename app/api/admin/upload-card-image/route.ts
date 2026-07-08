@@ -4,7 +4,7 @@ import { verifyAdminToken } from '@/lib/adminAuth'
 
 export async function POST(request: NextRequest) {
   const token = request.headers.get('x-admin-token') ?? ''
-  if (!verifyAdminToken(token)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await verifyAdminToken(token)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
   const { base64, entity_type, entity_id } = body as {

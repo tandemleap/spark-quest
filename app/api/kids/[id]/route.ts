@@ -42,7 +42,7 @@ export async function PATCH(
   const supabase = getServiceSupabase()
 
   const allowed = [
-    'avatar_url', 'available_points',
+    'avatar_url',
     'short_term_goal_id', 'short_term_goal_type',
     'long_term_goal_id', 'long_term_goal_type',
     'show_avatar_in_scroll',
