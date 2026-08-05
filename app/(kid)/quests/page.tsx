@@ -21,6 +21,7 @@ export default function QuestsPage() {
   const [loading, setLoading] = useState(true)
   const [domainFilter, setDomainFilter] = useState<'all' | Domain>('all')
   const [staffFilter, setStaffFilter] = useState<string>('all')
+  const [searchQuery, setSearchQuery] = useState('')
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null)
   const [verifyQuest, setVerifyQuest] = useState<Quest | null>(null)
 
@@ -55,9 +56,16 @@ export default function QuestsPage() {
     new Set(quests.map(q => q.created_by).filter(Boolean) as string[])
   ).sort()
 
+  const query = searchQuery.trim().toLowerCase()
+
   const filtered = quests
     .filter(q => domainFilter === 'all' || q.domain_tags.includes(domainFilter as Domain))
     .filter(q => staffFilter === 'all' || q.created_by === staffFilter)
+    .filter(q =>
+      !query ||
+      q.title.toLowerCase().includes(query) ||
+      (q.description ?? '').toLowerCase().includes(query)
+    )
 
   return (
     <div className="px-4 pt-8 pb-4">
@@ -72,6 +80,29 @@ export default function QuestsPage() {
           Quests
         </h1>
         <p className="text-[--color-muted] text-sm mt-1">Complete challenges to earn XP ⚡</p>
+      </div>
+
+      {/* Search */}
+      <div className="relative mb-4 animate-slide-up" style={{ animationDelay: '0.02s', opacity: 0 }}>
+        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[--color-muted] text-sm pointer-events-none">
+          🔍
+        </span>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          placeholder="Search quests..."
+          className="w-full bg-[--color-surface] border border-[--color-border] rounded-xl pl-10 pr-9 py-2.5 text-[--color-text] placeholder:text-[--color-muted] focus:outline-none focus:border-[--color-accent]"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            aria-label="Clear search"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-[--color-muted] text-lg leading-none"
+          >
+            ×
+          </button>
+        )}
       </div>
 
       {/* Daily cap warning */}
@@ -167,7 +198,9 @@ export default function QuestsPage() {
             </div>
           ))}
           {filtered.length === 0 && (
-            <p className="text-center text-[--color-muted] pt-12">No quests match this filter.</p>
+            <p className="text-center text-[--color-muted] pt-12">
+              {query ? `No quests match "${searchQuery.trim()}".` : 'No quests match this filter.'}
+            </p>
           )}
         </div>
       )}
