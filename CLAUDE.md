@@ -17,6 +17,7 @@ Live at: https://spark-quest-theta.vercel.app/
 - Kids: localStorage only (`spark_kid_id`, `spark_kid_handle`, `spark_kid_avatar`) — no accounts
 - Staff: bcrypt passcode stored in `staff_config` table, compared server-side only
 - Admin session: HMAC-signed token stored in `sessionStorage`, verified in `lib/adminAuth.ts`
+- **Switch User:** "SWITCH" item in `BottomNav` (5th tab, action button not a route) opens a confirm sheet in `(kid)/layout.tsx` → clears the three `spark_kid_*` localStorage keys + `goals_prompt_dismissed` sessionStorage flag → routes to `/`. Lets staff hand a shared device to the next kid without a real logout system.
 
 ## Key Rules
 - Never put `export const runtime = 'edge'` on any route that uses `bcryptjs`

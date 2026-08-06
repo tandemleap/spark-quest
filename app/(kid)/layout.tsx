@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation'
 import { BottomNav } from '@/components/layout/BottomNav'
 import { PointsToastContainer } from '@/components/ui/PointsToast'
 import { FullPageSpinner } from '@/components/ui/LoadingSpinner'
+import { Button } from '@/components/ui/Button'
 
 export default function KidLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [checked, setChecked] = useState(false)
   const [showGoalPrompt, setShowGoalPrompt] = useState(false)
   const [missingCount, setMissingCount] = useState(0)
+  const [showSwitchConfirm, setShowSwitchConfirm] = useState(false)
 
   useEffect(() => {
     const kidId = localStorage.getItem('spark_kid_id')
@@ -45,16 +47,67 @@ export default function KidLayout({ children }: { children: React.ReactNode }) {
     router.push('/progress-station')
   }
 
+  function switchUser() {
+    localStorage.removeItem('spark_kid_id')
+    localStorage.removeItem('spark_kid_handle')
+    localStorage.removeItem('spark_kid_avatar')
+    sessionStorage.removeItem('goals_prompt_dismissed')
+    router.push('/')
+  }
+
   if (!checked) return <FullPageSpinner />
 
   return (
     <div className="app-shell min-h-screen bg-[--color-bg]">
       <main className="pb-nav">{children}</main>
-      <BottomNav />
+      <BottomNav onSwitchUser={() => setShowSwitchConfirm(true)} />
       <PointsToastContainer />
       {showGoalPrompt && (
         <GoalPromptSheet missingCount={missingCount} onSetGoals={goToGoals} onSkip={dismissPrompt} />
       )}
+      {showSwitchConfirm && (
+        <SwitchUserSheet onConfirm={switchUser} onCancel={() => setShowSwitchConfirm(false)} />
+      )}
+    </div>
+  )
+}
+
+function SwitchUserSheet({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(4px)' }}
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-lg rounded-t-3xl px-6 pt-6 pb-12 animate-slide-up"
+        style={{ background: 'var(--color-surface)', borderTop: '1px solid var(--color-border)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="w-10 h-1 rounded-full bg-[--color-border] mx-auto mb-5" />
+
+        <div className="text-center mb-6">
+          <span className="text-4xl block mb-3">👋</span>
+          <h2
+            className="font-barlow font-black text-2xl uppercase text-[--color-text] mb-2"
+            style={{ letterSpacing: '-0.01em' }}
+          >
+            Switch User?
+          </h2>
+          <p className="text-[--color-muted] text-sm leading-snug max-w-xs mx-auto">
+            You&apos;ll be logged out on this device. Your points and progress are saved — just log back in next time.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <Button variant="danger" size="lg" onClick={onConfirm}>
+            Yes, Switch User
+          </Button>
+          <Button variant="ghost" size="lg" onClick={onCancel}>
+            Cancel
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }
