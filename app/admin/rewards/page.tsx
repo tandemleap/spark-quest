@@ -410,7 +410,7 @@ export default function AdminRewardsPage() {
                     ) : (
                       <div className="w-20 h-14 rounded-xl border border-dashed border-[--color-border] flex items-center justify-center text-[--color-muted] text-xs">No image</div>
                     )}
-                    <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={e => { if (e.target.files?.[0]) handleImagePick(e.target.files[0]) }} />
+                    <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={e => { if (e.target.files?.[0]) handleImagePick(e.target.files[0]); e.target.value = '' }} />
                     <button
                       type="button"
                       disabled={imageUploading}

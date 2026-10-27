@@ -18,14 +18,20 @@ export async function POST(request: NextRequest) {
   }
 
   const table = entity_type === 'quest' ? 'quests' : entity_type === 'drop' ? 'drops' : 'adventures'
-  const path  = `${entity_type}/${entity_id}.webp`
+  const mime  = base64.match(/^data:(image\/[\w+.-]+);base64,/)?.[1] ?? 'image/webp'
+  const ext   = mime.split('/')[1].replace('jpeg', 'jpg').replace(/\+.*$/, '')
+  // Unique path per upload so browsers/CDN don't keep serving the old image
+  const path  = `${entity_type}/${entity_id}-${Date.now()}.${ext}`
 
-  const buffer = Buffer.from(base64.replace(/^data:image\/\w+;base64,/, ''), 'base64')
+  const buffer = Buffer.from(base64.replace(/^data:image\/[\w+.-]+;base64,/, ''), 'base64')
 
   const supabase = getServiceSupabase()
+
+  const { data: existing } = await supabase.from(table).select('image_url').eq('id', entity_id).single()
+
   const { error: uploadError } = await supabase.storage
     .from('card-images')
-    .upload(path, buffer, { contentType: 'image/webp', upsert: true })
+    .upload(path, buffer, { contentType: mime, upsert: true })
 
   if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 })
 
@@ -37,6 +43,10 @@ export async function POST(request: NextRequest) {
     .eq('id', entity_id)
 
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
+
+  // Clean up the previous file (best effort)
+  const oldPath = existing?.image_url?.split('/card-images/')[1]?.split('?')[0]
+  if (oldPath && oldPath !== path) await supabase.storage.from('card-images').remove([oldPath])
 
   return NextResponse.json({ image_url: publicUrl })
 }
